@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Контролі">
+<meta name="theme-color" content="#0f172a">
+<link rel="manifest" href="/manifest.json">
+<title>&#1050;&#1086;&#1085;&#1090;&#1088;&#1086;&#1083;&#1110;</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.3/Sortable.min.js"></script>
+<link rel="stylesheet" href="/css/styles.css">
+<link rel="stylesheet" href="/css/grantflow.css">
+</head>
+<body>
+
+<header class="topbar" id="topbar">
+  <button onclick="toggleSidebar()" title="&#1052;&#1077;&#1085;&#1102;" style="font-size:.9rem">☰</button>
+  <h1>📋 &#1050;&#1086;&#1085;&#1090;&#1088;&#1086;&#1083;&#1110;</h1>
+  <div class="sp"></div>
+  <span id="user-info" style="font-size:.68rem;color:var(--tx3)"></span>
+  <button id="logout-btn" onclick="logout()" title="&#1042;&#1080;&#1081;&#1090;&#1080;" style="display:none;font-size:.75rem">🚪</button>
+  <button onclick="openTemplates()" title="&#1064;&#1072;&#1073;&#1083;&#1086;&#1085;&#1080;">📄</button>
+  <button id="bell-btn" onclick="openBell()" title="&#1057;&#1087;&#1086;&#1074;&#1110;&#1097;&#1077;&#1085;&#1085;&#1103;">🔔<span class="bell-badge" id="bell-cnt" style="display:none">0</span></button>
+  <button onclick="toggleTopbar()" title="&#1057;&#1093;&#1086;&#1074;&#1072;&#1090;&#1080; &#1087;&#1072;&#1085;&#1077;&#1083;&#1100;">⬆</button>
+  <button onclick="showTab('settings')" title="&#1053;&#1072;&#1083;&#1072;&#1096;&#1090;&#1091;&#1074;&#1072;&#1085;&#1085;&#1103;">⚙️</button>
+</header>
+<button class="tb-show" id="tb-show" onclick="toggleTopbar()">⬇</button>
+
+<nav class="sidebar" id="sidebar">
+  <button class="nav-btn" data-t="main" onclick="showTab('main')"><span class="si">🏠</span><span class="slbl">&#1043;&#1086;&#1083;&#1086;&#1074;&#1085;&#1072;</span></button>
+  <button class="nav-btn" data-t="inbox" onclick="showTab('inbox')"><span class="si">📨</span><span class="slbl">&#1042;&#1093;&#1110;&#1076;&#1085;&#1110;</span></button>
+  <button class="nav-btn on" data-t="myday" onclick="showTab('myday')"><span class="si nav-badge">☀️<span class="nb" id="md-badge" style="display:none">0</span></span><span class="slbl">&#1052;&#1110;&#1081; &#1076;&#1077;&#1085;&#1100;</span></button>
+  <button class="nav-btn" data-t="calendar" onclick="showTab('calendar')"><span class="si">📅</span><span class="slbl">&#1050;&#1072;&#1083;&#1077;&#1085;&#1076;&#1072;&#1088;</span></button>
+  <button class="nav-btn" data-t="orgs" onclick="showTab('orgs')"><span class="si">🏢</span><span class="slbl">&#1054;&#1088;&#1075;&#1072;&#1085;&#1110;&#1079;&#1072;&#1094;&#1110;&#1111;</span></button>
+  <button class="nav-btn" data-t="comms" onclick="showTab('comms')"><span class="si">👥</span><span class="slbl">&#1050;&#1086;&#1084;&#1110;&#1089;&#1110;&#1111;</span></button>
+  <button class="nav-btn" data-t="reports" onclick="showTab('reports')"><span class="si">📊</span><span class="slbl">&#1047;&#1074;&#1110;&#1090;&#1080;</span></button>
+  <button class="nav-btn" data-t="grantflow" onclick="enterGrantFlow()" id="gfNavBtn"><span class="si">🔍</span><span class="slbl">&#1043;&#1088;&#1072;&#1085;&#1090;&#1080;</span></button>
+  <button class="sb-toggle" onclick="toggleSidebar()" title="&#1047;&#1075;&#1086;&#1088;&#1085;&#1091;&#1090;&#1080;">◀</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+<div class="rp-backdrop" id="rp-bg" onclick="closeP()"></div>
+<div class="rpanel" id="rp"><button class="rp-x" onclick="closeP()">✕</button><div id="rpc"></div></div>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen" style="position:fixed;inset:0;z-index:999;background:var(--bg);display:flex;align-items:center;justify-content:center">
+  <div style="width:320px;padding:30px;background:var(--card);border:1px solid var(--brd);border-radius:12px;text-align:center">
+    <div style="font-size:2rem;margin-bottom:10px">📋</div>
+    <h1 style="font-size:1.2rem;margin-bottom:16px">&#1050;&#1086;&#1085;&#1090;&#1088;&#1086;&#1083;&#1110;</h1>
+    <div class="fg" style="text-align:left;margin-bottom:10px"><label>&#1051;&#1086;&#1075;&#1110;&#1085;</label><input type="text" id="lg-user" placeholder="admin" autofocus></div>
+    <div class="fg" style="text-align:left;margin-bottom:14px"><label>&#1055;&#1072;&#1088;&#1086;&#1083;&#1100;</label><input type="password" id="lg-pass" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="btn btn-p" style="width:100%;padding:10px;font-size:.9rem" onclick="doLogin()">🔑 &#1059;&#1074;&#1110;&#1081;&#1090;&#1080;</button>
+    <div id="lg-err" style="color:var(--red);font-size:.78rem;margin-top:8px;min-height:20px"></div>
+    <div style="font-size:.65rem;color:var(--tx3);margin-top:10px">&#1055;&#1077;&#1088;&#1096;&#1080;&#1081; &#1074;&#1093;&#1110;&#1076;: admin / admin</div>
+    <button id="lg-reset-btn" onclick="resetAdminPwd()" style="background:none;border:none;color:var(--tx3);font-size:.6rem;cursor:pointer;margin-top:6px;text-decoration:underline;display:none">🔧 &#1057;&#1082;&#1080;&#1085;&#1091;&#1090;&#1080; &#1087;&#1072;&#1088;&#1086;&#1083;&#1100; &#1072;&#1076;&#1084;&#1110;&#1085;&#1072;</button>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--brd)">
+      <button class="btn btn-s" style="width:100%;padding:8px;font-size:.8rem;display:flex;align-items:center;justify-content:center;gap:6px" onclick="doGoogleLogin()">
+        <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#4285F4" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#34A853" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59A14.5 14.5 0 019.5 24c0-1.59.28-3.14.77-4.59L2.56 13.22A23.94 23.94 0 000 24c0 3.77.87 7.34 2.56 10.78l7.97-6.19z"/><path fill="#EA4335" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Google
+      </button>
+      <div style="font-size:.55rem;color:var(--tx3);margin-top:4px">&#1065;&#1086;&#1073; &#1074;&#1080;&#1082;&#1086;&#1088;&#1080;&#1089;&#1090;&#1086;&#1074;&#1091;&#1074;&#1072;&#1090;&#1080; Google, &#1091;&#1074;&#1110;&#1084;&#1082;&#1085;&#1110;&#1090;&#1100; Firebase Auth</div>
+    </div>
+  </div>
+</div>
+
+<main class="main" id="main-area" style="display:none">
+
+<section id="tab-main">
+  <div id="dash-stats" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap"></div>
+  <div class="filters">
+    <input type="text" id="f-q" placeholder="🔍 Пошук (назва, №, від кого, зміст...)" oninput="debApplyF()">
+    <input type="date" id="f-df" onchange="applyF()">
+    <input type="date" id="f-dt" onchange="applyF()">
+    <select id="f-st" onchange="applyF()"><option value="">Усі</option><option value="active">Активні</option><option value="overdue">Прострочені</option><option value="done">Виконані</option></select>
+    <select id="f-ex" onchange="applyF()"><option value="">Усі виконавці</option></select>
+    <select id="f-tp" onchange="applyF()"><option value="">Усі типи</option></select>
+    <select id="f-sort" onchange="applyF()"><option value="deadline">📅 По терміну</option><option value="num">🔢 По номеру</option><option value="type">📄 По типу</option><option value="from">📨 По відправнику</option><option value="name">📝 По назві</option><option value="executor">👤 По виконавцю</option></select>
+    <button class="fb" onclick="resetF()">⟲ Скинути</button>
+    <button class="fb" id="btn-all" onclick="showAllD()">📋 Усі</button>
+    <button class="fb" id="btn-inbox" onclick="toggleInboxFilter()">📨 Вхідні</button>
+  </div>
+  <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:5px">
+    <button class="fb" style="font-size:.68rem" onclick="quickFilter('overdue')">🔴 Прострочені</button>
+    <button class="fb" style="font-size:.68rem" onclick="quickFilter('no-resp')">📭 Без відповіді</button>
+    <button class="fb" style="font-size:.68rem" onclick="quickFilter('sign')">✍️ На підписі</button>
+    <button class="fb" style="font-size:.68rem" onclick="quickFilter('my')" id="btn-my">⭐ Мої</button>
+    <button class="fb" style="font-size:.68rem" onclick="quickFilter('week')">📅 На тиждень</button>
+  </div>
+  <div class="tag-chips" id="tc"></div>
+  <div id="cards"></div>
+  <button onclick="openNewDoc()" style="position:fixed;bottom:14px;right:14px;width:46px;height:46px;border-radius:50%;background:var(--acc);color:#fff;border:none;font-size:1.2rem;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,.4);z-index:80">＋</button>
+</section>
+
+<section id="tab-inbox" style="display:none">
+  <div style="display:flex;gap:5px;align-items:center;margin-bottom:7px;flex-wrap:wrap">
+    <input type="text" id="ib-q" placeholder="🔍 Пошук вхідних..." oninput="renderInbox()" style="flex:1;min-width:100px;background:var(--bg2);border:1px solid var(--brd);color:var(--tx);padding:5px 9px;border-radius:var(--r);font-size:.78rem;outline:none">
+    <select id="ib-st" onchange="renderInbox()" style="background:var(--bg2);border:1px solid var(--brd);color:var(--tx);padding:5px;border-radius:var(--r);font-size:.78rem"><option value="">Усі</option><option value="active">Активні</option><option value="overdue">Прострочені</option><option value="done">Виконані</option></select>
+    <select id="ib-fr" onchange="renderInbox()" style="background:var(--bg2);border:1px solid var(--brd);color:var(--tx);padding:5px;border-radius:var(--r);font-size:.78rem"><option value="">Усі відправники</option></select>
+  </div>
+  <div id="ib-mass" style="display:none;padding:8px;background:var(--bg2);border:1px solid var(--acc);border-radius:var(--r);margin-bottom:8px;display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+    <span id="ib-cnt" style="font-size:.78rem;font-weight:700;color:var(--acc)">0 обрано</span>
+    <button class="btn btn-p btn-sm" onclick="massPrintRes()">🖨 Резолюції</button>
+    <button class="btn btn-s btn-sm" onclick="massAssignExec()">👤 Виконавець</button>
+    <button class="btn btn-s btn-sm" onclick="massDone()">✅ Виконано</button>
+    <button class="btn btn-s btn-sm" onclick="clearSelection()">✕ Скинути</button>
+  </div>
+  <div id="ib-list"></div>
+</section>
+
+<section id="tab-myday" style="display:none">
+  <div class="myday"><h2>☀️ Мій день — <span id="md-d"></span></h2><div id="md-l"></div></div>
+</section>
+
+<section id="tab-calendar" style="display:none">
+  <div class="filters">
+    <select id="cf-st" onchange="renderCal()"><option value="">Усі</option><option value="active">Активні</option><option value="done">Виконані</option></select>
+    <select id="cf-tp" onchange="renderCal()"><option value="">Усі типи</option></select>
+    <select id="cf-fr" onchange="renderCal()"><option value="">Усі організації</option></select>
+  </div>
+  <div class="cal-nav"><button onclick="calPrev()">◀</button><h3 id="cal-t"></h3><button onclick="calNext()">▶</button></div>
+  <div class="cg" id="cal-g"></div>
+  <div class="cdet" id="cdet" style="display:none"><h3 id="cdet-t"></h3><div id="cdet-c"></div></div>
+</section>
+
+<section id="tab-orgs" style="display:none">
+  <div style="display:flex;gap:5px;align-items:center;margin-bottom:7px">
+    <input type="text" id="org-s" placeholder="🔍 Пошук організацій..." oninput="renderOrgs()" style="flex:1;background:var(--bg2);border:1px solid var(--brd);color:var(--tx);padding:5px 9px;border-radius:var(--r);font-size:.78rem;outline:none">
+    <button class="btn btn-s btn-sm" id="org-archive-btn" onclick="toggleOrgArchive()">🗑 Архів</button>
+    <button class="btn btn-s btn-sm" id="org-reorder-btn" onclick="toggleOrgReorder()">↕ Порядок</button>
+    <button class="btn btn-p btn-sm" onclick="openNewOrg()">＋ Додати</button>
+  </div>
+  <div id="org-t"></div>
+  <div id="org-archive" style="display:none"></div>
+</section>
+
+<section id="tab-comms" style="display:none">
+  <div style="display:flex;gap:5px;align-items:center;margin-bottom:7px;flex-wrap:wrap">
+    <input type="text" id="cm-s" placeholder="🔍 Пошук комісій..." oninput="renderComms()" style="flex:1;min-width:120px;background:var(--bg2);border:1px solid var(--brd);color:var(--tx);padding:5px 9px;border-radius:var(--r);font-size:.78rem;outline:none">
+    <select id="cm-ft" onchange="renderComms()" style="background:var(--bg2);border:1px solid var(--brd);color:var(--tx);padding:5px;border-radius:var(--r);font-size:.78rem"><option value="">Усі типи</option><option>Постійна</option><option>Тимчасова</option></select>
+    <select id="cm-fs" onchange="renderComms()" style="background:var(--bg2);border:1px solid var(--brd);color:var(--tx);padding:5px;border-radius:var(--r);font-size:.78rem"><option value="">Усі</option><option>Активна</option><option>Завершена</option></select>
+    <select id="cm-fr" onchange="renderComms()" style="background:var(--bg2);border:1px solid var(--brd);color:var(--tx);padding:5px;border-radius:var(--r);font-size:.78rem"><option value="">Усі ролі</option><option value="head">Голова</option><option value="deputy">Заступник</option><option value="secretary">Секретар</option><option value="member">Член</option></select>
+  </div>
+  <div style="display:flex;gap:4px;margin-bottom:8px">
+    <button class="btn btn-s btn-sm" id="cm-my" onclick="toggleCmMy()" style="font-size:.72rem">⭐ Мої комісії</button>
+    <button class="btn btn-s btn-sm" onclick="el('cm-fs').value='Активна';renderComms()" style="font-size:.72rem">✅ Активні</button>
+    <button class="btn btn-s btn-sm" onclick="el('cm-fs').value='Завершена';renderComms()" style="font-size:.72rem">📦 Архів</button>
+    <div style="flex:1"></div>
+    <button class="btn btn-p btn-sm" onclick="openNewComm()">＋ Комісія</button>
+  </div>
+  <div id="cm-list"></div>
+</section>
+
+<section id="tab-reports" style="display:none">
+  <div class="filters">
+    <input type="date" id="rf-f" onchange="renderRpt()">
+    <input type="date" id="rf-t" onchange="renderRpt()">
+    <select id="rf-ex" onchange="renderRpt()"><option value="">Усі виконавці</option></select>
+    <select id="rf-tp" onchange="renderRpt()"><option value="">Усі типи</option></select>
+    <button class="fb" onclick="resetRF()">⟲</button>
+    <button class="fb" onclick="exportData()" title="Експорт у CSV">📥 Експорт</button>
+  </div>
+  <div class="stats" id="sts"></div>
+  <div class="rpt"><h3>📊 Виконавська дисципліна</h3><div class="chwrap"><canvas id="chD"></canvas></div></div>
+  <div class="rpt"><h3>⏱ Середній час виконання</h3><div id="avgC"></div></div>
+  <div class="rpt"><h3>📈 Тренд завантаженості</h3><div class="chwrap"><canvas id="chT"></canvas></div></div>
+  <div class="rpt"><h3>👥 Звіт по комісіях</h3><div id="rptComm"></div></div>
+</section>
+
+<section id="tab-settings" style="display:none">
+  <h2 style="font-size:1rem;font-weight:700;margin-bottom:10px">⚙️ &#1053;&#1072;&#1083;&#1072;&#1096;&#1090;&#1091;&#1074;&#1072;&#1085;&#1085;&#1103;</h2>
+  <div class="si-row"><div><div class="si-l">🌙 Тема</div></div><button class="tog" id="tT" onclick="togTheme()"></button></div>
+  <div class="si-row"><div><div class="si-l">🔔 Push-сповіщення</div></div><button class="tog" id="tP" onclick="togglePush()"></button></div>
+  <div class="fg" style="margin-top:10px"><label>📧 Email</label><div style="display:flex;gap:5px"><input type="email" id="sE"><button class="btn btn-p btn-sm" onclick="testMail()">Тест</button></div></div>
+  <div class="fg"><label>🔥 Firebase</label><div style="font-size:.72rem;color:var(--grn);padding:4px">✅ kontrol-pro.firebaseapp.com</div></div>
+  <div class="si-row"><div><div class="si-l">💾 Бекап</div></div><button class="btn btn-s btn-sm" onclick="doBkp()">Зараз</button></div>
+  <div class="si-row"><div><div class="si-l">🛡 Захист від видалення</div></div><span style="color:var(--grn)">✅</span></div>
+  <div class="fg" style="margin-top:10px"><label>🔔 Нагадування за замовчуванням</label><div id="set-def-rem" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"></div><button class="btn btn-s btn-sm" style="margin-top:5px" onclick="saveDefReminders()">💾 Зберегти</button></div>
+
+  <!-- USER MANAGEMENT (admin only) -->
+  <div id="user-mgmt" style="margin-top:14px;border-top:1px solid var(--brd);padding-top:10px">
+    <h3 style="font-size:.9rem;font-weight:700;margin-bottom:8px">👥 Користувачі</h3>
+    <div id="users-list" style="margin-bottom:8px"></div>
+    <button class="btn btn-p btn-sm" onclick="openAddUser()">＋ Додати користувача</button>
+  </div>
+
+  <!-- PENDING DELETES (admin only) -->
+  <div id="pending-del" style="margin-top:14px;border-top:1px solid var(--brd);padding-top:10px">
+    <h3 style="font-size:.9rem;font-weight:700;margin-bottom:8px">🗑 Запити на видалення</h3>
+    <div id="pending-list"></div>
+  </div>
+
+  <!-- ACTIVITY LOG -->
+  <div style="margin-top:14px;border-top:1px solid var(--brd);padding-top:10px">
+    <h3 style="font-size:.9rem;font-weight:700;margin-bottom:8px">📋 Журнал дій</h3>
+    <button class="btn btn-s btn-sm" onclick="loadLog()">Завантажити</button>
+    <div id="log-list" style="max-height:300px;overflow-y:auto;margin-top:6px;font-size:.7rem"></div>
+  </div>
+
+  <p style="margin-top:14px;font-size:.68rem;color:var(--tx3);text-align:center">&#1050;&#1086;&#1085;&#1090;&#1088;&#1086;&#1083;&#1110; v14.1 • 2026</p>
+</section>
+
+</main>
+
+<!-- DOC OVERLAY -->
+<div class="doc-overlay" id="doc-ov" onclick="if(event.target===this)closeOverlay()">
+<div class="doc-overlay-inner">
+<div style="position:absolute;top:8px;right:8px;display:flex;gap:4px;z-index:2">
+<a id="doc-ov-url" href="#" target="_blank" style="background:var(--acc);color:#fff;border:none;width:32px;height:32px;border-radius:50%;font-size:.8rem;cursor:pointer;display:flex;align-items:center;justify-content:center;text-decoration:none" title="Відкрити в новій вкладці">↗</a>
+<button style="background:var(--acc);color:#fff;border:none;width:32px;height:32px;border-radius:50%;font-size:.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center" onclick="printOverlay()" title="Друк">🖨</button>
+<button class="doc-overlay-close" onclick="closeOverlay()">✕</button>
+</div>
+<iframe id="doc-ov-frame" src="about:blank" allow="autoplay" style="width:100%;height:100%;border:none;background:#fff" allowfullscreen></iframe>
+</div>
+</div>
+
+
+<!-- JS Modules (порядок важливий!) -->
+<script src="/js/firebase.js"></script>
+<script src="/js/core.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/recurring.js"></script>
+<script src="/js/organizations.js"></script>
+<script src="/js/form_helpers.js"></script>
+<script src="/js/documents.js"></script>
+<script src="/js/calendar.js"></script>
+<script src="/js/commissions.js"></script>
+<script src="/js/reports.js"></script>
+<script src="/js/settings.js"></script>
+<script src="/js/print.js"></script>
+<!-- GrantFlow Module -->
+<script src="/js/gf-data.js"></script>
+<script src="/js/gf-core.js"></script>
+<script src="/js/gf-overview.js"></script>
+<script src="/js/gf-detected.js"></script>
+<script src="/js/gf-sources.js"></script>
+<script src="/js/gf-modals.js"></script>
+<script src="/js/gf-pages.js"></script>
+<script src="/js/init.js"></script>
+
+<!-- ═══════════════════════════════════════════════════════
+     GrantFlow HTML — вставити в index.html перед </body>
+     ═══════════════════════════════════════════════════════ -->
+
+<div id="grantflowRoot" class="hidden" style="display:none">
+  <div class="gf-layout">
+    <!-- Sidebar -->
+    <aside class="gf-side">
+      <div class="gf-logo">
+        <div class="gf-logo-text">GrantFlow</div>
+        <div class="gf-logo-sub">Моніторинг грантів</div>
+      </div>
+      <button class="gf-back" onclick="exitGrantFlow()">← Повернутись до Контролів</button>
+      <div id="gfNav" class="gf-nav"></div>
+      <div class="gf-side-footer">GrantFlow v1.0 · Firebase</div>
+    </aside>
+
+    <!-- Main -->
+    <main class="gf-body">
+      <div class="gf-top">
+        <div>
+          <h2 id="gfTitle">Огляд</h2>
+          <div class="gf-top-sub" id="gfSub">Загальна картина</div>
+        </div>
+        <div class="gf-top-acts">
+          <button class="gf-btn sm o" onclick="gfRefresh()">🔄 Оновити</button>
+          <button class="gf-btn sm" onclick="gfQuickAdd()">+ Додати вручну</button>
+        </div>
+      </div>
+      <section id="gfContent"></section>
+    </main>
+  </div>
+
+  <!-- Mobile bottom nav -->
+  <div id="gfBNav" class="gf-bnav"></div>
+
+  <!-- Busy overlay -->
+  <div id="gfBusy" class="gf-busy hidden">
+    <div class="gf-busy-box">
+      <h3>Обробка…</h3>
+      <div class="gf-muted">Зачекайте.</div>
+      <div class="gf-busy-bar"><div></div></div>
+    </div>
+  </div>
+
+  <!-- ══════ EDITOR MODAL ══════ -->
+  <div id="gfEditorModal" class="gf-modal hidden">
+    <div class="gf-modal-box" style="max-width:1300px">
+      <button class="gf-modal-close" onclick="gfCloseEditor()">✕</button>
+      <h3 style="margin:0 0 14px;font-size:16px">Редагування картки</h3>
+      <input type="hidden" id="gfe-id">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div class="gf-field"><label>Заголовок</label><input id="gfe-title"></div>
+          <div class="gf-field"><label>Загальний опис</label><textarea id="gfe-desc" style="min-height:120px"></textarea></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="gf-field"><label>Дедлайн</label><input id="gfe-deadline"></div>
+            <div class="gf-field"><label>Сума гранту</label><input id="gfe-amount"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="gf-field"><label>Заявники</label><textarea id="gfe-applicants" style="min-height:70px"></textarea></div>
+            <div class="gf-field"><label>Мета конкурсу</label><textarea id="gfe-goal" style="min-height:70px"></textarea></div>
+          </div>
+          <div class="gf-field"><label>Умови участі</label><textarea id="gfe-conditions" style="min-height:60px"></textarea></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="gf-field"><label>Донор</label><input id="gfe-donor"></div>
+            <div class="gf-field"><label>Географія</label><input id="gfe-geo"></div>
+          </div>
+          <div class="gf-field"><label>Теги</label><input id="gfe-tags" placeholder="через кому"></div>
+          <div class="gf-field"><label>Тематики</label><input id="gfe-topics" placeholder="через кому"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="gf-field"><label>URL джерела</label><input id="gfe-src-url"></div>
+            <div class="gf-field"><label>URL деталей</label><input id="gfe-det-url"></div>
+          </div>
+          <div class="gf-field"><label>Примітка</label><textarea id="gfe-notes" style="min-height:60px"></textarea></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+            <button class="gf-btn" onclick="gfSaveEditor()">💾 Зберегти</button>
+            <button class="gf-btn o" onclick="gfEditorOpenUrl()">↗ Відкрити сайт</button>
+            <button class="gf-btn o" onclick="gfCloseEditor()">Скасувати</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">Попередній перегляд</div>
+          <iframe id="gfe-frame" style="width:100%;height:70vh;border:1px solid var(--border);border-radius:var(--r);background:#fff" sandbox="allow-scripts allow-same-origin"></iframe>
+          <div class="gf-muted" style="margin-top:6px;font-size:11px">Якщо сайт блокує iframe — скористайтесь кнопкою «Відкрити сайт».</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ STATUS MODAL ══════ -->
+  <div id="gfStatusModal" class="gf-modal hidden">
+    <div class="gf-modal-box" style="max-width:500px">
+      <button class="gf-modal-close" onclick="gfCloseStatusModal()">✕</button>
+      <h3 id="gfStatusTitle" style="margin:0 0 14px">Зміна статусу</h3>
+      <input type="hidden" id="gfs-id"><input type="hidden" id="gfs-status">
+      <div class="gf-field"><label>Причина</label><select id="gfs-reason"></select></div>
+      <div class="gf-field"><label>Коментар</label><textarea id="gfs-comment" style="min-height:100px"></textarea></div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button class="gf-btn" onclick="gfSubmitStatus()">Підтвердити</button>
+        <button class="gf-btn o" onclick="gfCloseStatusModal()">Скасувати</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ SOURCE FORM MODAL ══════ -->
+  <div id="gfSourceModal" class="gf-modal hidden">
+    <div class="gf-modal-box" style="max-width:800px">
+      <button class="gf-modal-close" onclick="gfCloseSourceForm()">✕</button>
+      <h3 id="gfSrcFormTitle" style="margin:0 0 14px">Нове джерело</h3>
+      <input type="hidden" id="gfsf-id">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="gf-field"><label>Назва</label><input id="gfsf-source_name"></div>
+        <div class="gf-field"><label>URL</label><input id="gfsf-source_url"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div class="gf-field"><label>Тип</label><select id="gfsf-source_type"><option value="page">Сторінка</option><option value="rss">RSS</option><option value="telegram">Telegram</option></select></div>
+        <div class="gf-field"><label>Парсинг</label><select id="gfsf-parser_mode"><option value="page_links">Список посилань</option><option value="page_single">Одна сторінка</option><option value="rss">RSS</option><option value="telegram">Telegram HTML</option><option value="google_news_rss">Google News</option></select></div>
+        <div class="gf-field"><label>Пріоритет</label><select id="gfsf-source_priority"><option value="critical">Критично</option><option value="high">Високий</option><option value="medium">Середній</option><option value="low">Низький</option></select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div class="gf-field"><label>Статус</label><select id="gfsf-source_status"><option value="active">Активне</option><option value="paused">Пауза</option></select></div>
+        <div class="gf-field"><label>Макс записів</label><input id="gfsf-item_limit" type="number" min="1" max="50"></div>
+        <div class="gf-field"><label>Вікно (днів)</label><select id="gfsf-scan_window_days"><option value="3">3</option><option value="7">7</option><option value="14">14</option><option value="30">30</option></select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="gf-field"><label>Тематики</label><input id="gfsf-source_topics" placeholder="через кому"><button class="gf-btn sm o" style="margin-top:4px" onclick="gfOpenPicker('source_topics')">Обрати</button></div>
+        <div class="gf-field"><label>Ключові слова</label><input id="gfsf-source_keywords" placeholder="через кому"><button class="gf-btn sm o" style="margin-top:4px" onclick="gfOpenPicker('source_keywords')">Обрати</button></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="gf-field"><label>Включати</label><input id="gfsf-link_include"></div>
+        <div class="gf-field"><label>Виключати</label><input id="gfsf-link_exclude"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div class="gf-field"><label>Донор</label><input id="gfsf-donor_hint"><button class="gf-btn sm o" style="margin-top:4px" onclick="gfOpenPicker('donor_hint')">Обрати</button></div>
+        <div class="gf-field"><label>Географія</label><input id="gfsf-geography_hint"><button class="gf-btn sm o" style="margin-top:4px" onclick="gfOpenPicker('geography_hint')">Обрати</button></div>
+        <div class="gf-field"><label>Заявники</label><input id="gfsf-applicants_hint"><button class="gf-btn sm o" style="margin-top:4px" onclick="gfOpenPicker('applicants_hint')">Обрати</button></div>
+      </div>
+      <div style="display:flex;gap:14px;margin:10px 0">
+        <label style="font-size:12px;cursor:pointer"><input type="checkbox" id="gfsf-fetch_details"> Заходити в деталі</label>
+        <label style="font-size:12px;cursor:pointer"><input type="checkbox" id="gfsf-first_scan_mode"> Перший скан без фільтрів</label>
+      </div>
+      <div class="gf-field"><label>Примітка</label><textarea id="gfsf-notes"></textarea></div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button class="gf-btn g" onclick="gfSaveSourceForm()">💾 Зберегти</button>
+        <button class="gf-btn o" onclick="gfCloseSourceForm()">Скасувати</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ PICKER MODAL ══════ -->
+  <div id="gfPickerModal" class="gf-modal hidden">
+    <div class="gf-modal-box" style="max-width:500px">
+      <button class="gf-modal-close" onclick="gfClosePicker()">✕</button>
+      <h3 style="margin:0 0 14px">Обрати значення</h3>
+      <div id="gfPickerList" style="max-height:40vh;overflow:auto;padding:10px;border:1px solid var(--border);border-radius:var(--r);background:rgba(255,255,255,.02);margin-bottom:10px"></div>
+      <div class="gf-field"><label>Додати своє</label><input id="gfPickerCustom" placeholder="через кому"></div>
+      <div style="display:flex;gap:6px">
+        <button class="gf-btn" onclick="gfApplyPicker()">Застосувати</button>
+        <button class="gf-btn o" onclick="gfClosePicker()">Скасувати</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+</body>
+</html>

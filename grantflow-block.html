@@ -1,0 +1,45 @@
+<!-- ═══════════════════════════════════════════════════════
+     GrantFlow HTML — вставити в index.html перед </body>
+     ═══════════════════════════════════════════════════════ -->
+
+<div id="grantflowRoot" class="hidden" style="display:none">
+  <div class="gf-layout">
+    <!-- Sidebar -->
+    <aside class="gf-side">
+      <div class="gf-logo">
+        <div class="gf-logo-text">GrantFlow</div>
+        <div class="gf-logo-sub">Моніторинг грантів</div>
+      </div>
+      <button class="gf-back" onclick="exitGrantFlow()">← Повернутись до Контролів</button>
+      <div id="gfNav" class="gf-nav"></div>
+      <div class="gf-side-footer">GrantFlow v1.0 · Firebase</div>
+    </aside>
+
+    <!-- Main -->
+    <main class="gf-body">
+      <div class="gf-top">
+        <div>
+          <h2 id="gfTitle">Огляд</h2>
+          <div class="gf-top-sub" id="gfSub">Загальна картина</div>
+        </div>
+        <div class="gf-top-acts">
+          <button class="gf-btn sm o" onclick="gfRefresh()">🔄 Оновити</button>
+          <button class="gf-btn sm" onclick="gfQuickAdd()">+ Додати вручну</button>
+        </div>
+      </div>
+      <section id="gfContent"></section>
+    </main>
+  </div>
+
+  <!-- Mobile bottom nav -->
+  <div id="gfBNav" class="gf-bnav"></div>
+
+  <!-- Busy overlay -->
+  <div id="gfBusy" class="gf-busy hidden">
+    <div class="gf-busy-box">
+      <h3>Обробка…</h3>
+      <div class="gf-muted">Зачекайте.</div>
+      <div class="gf-busy-bar"><div></div></div>
+    </div>
+  </div>
+</div>
