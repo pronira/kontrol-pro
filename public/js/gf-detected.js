@@ -119,7 +119,9 @@ function gfDetList(items){
 
     /* Data grid */
     h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--border)">'
-      +gfCell('Донор',d.donor)+gfCell('Дедлайн',d.deadline,'color:var(--red)')+gfCell('Сума',d.amount_text)
+      +gfCell('Донор',d.donor)
+      +'<div style="padding:8px 16px;border-right:1px solid var(--border)"><div class="gf-muted" style="font-size:10px">Дедлайн</div><div style="font-size:12px;margin-top:2px">'+(d.deadline?gfDeadlineBadge(d.deadline)+' '+gfE(d.deadline):'—')+'</div></div>'
+      +gfCell('Сума',d.amount_text,'color:var(--green)')
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--border)">'
       +gfCell('Заявники',d.applicants)+gfCell('Географія',d.geography)+gfCell('Тематика',d.topics)
