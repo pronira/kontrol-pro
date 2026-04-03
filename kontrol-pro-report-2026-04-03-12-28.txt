@@ -1,0 +1,2986 @@
+﻿╔══════════════════════════════════════════════════════════════════╗
+║         ПОВНИЙ ЗВІТ ПАРСИНГУ — KONTROL PRO                      ║
+╚══════════════════════════════════════════════════════════════════╝
+Дата звіту : 03.04.2026, 12:28:20
+Джерел     : 55
+Активних   : 55
+З помилками: 3
+Успішних   : 3
+
+══════════════════════════════════════════════════════════════════
+ЗВЕДЕНА ТАБЛИЦЯ ПО ДЖЕРЕЛАХ
+══════════════════════════════════════════════════════════════════
+Назва                     Тип       Парсер          Статус      Raw    >14д  НеUA  Нових  Дубл  Остання перевірка
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+British Council UA        page      page_links      —           0      0     0     0      0     2026-04-03 11:45
+British Council Україна   page      page_links      —           0      0     0     0      0     —
+Devex Ukraine             rss       rss             HTTP_403    0      0     0     0      0     2026-04-03 12:22
+FundsforNGOs              rss       rss             empty       0      0     0     0      0     2026-04-03 12:22
+GIZ Ukraine               page      page_links      empty       0      0     2     0      0     2026-04-03 12:22
+GIZ Ukraine               telegram  telegram        empty       0      0     0     0      0     2026-04-03 12:22
+GetGrant                  page      page_links      ok_dupes    12     0     6     0      3     2026-04-03 12:23
+GetGrant.ua               page      page_links      ok_dupes    12     0     5     0      3     2026-04-03 12:23
+Grant Management          telegram  telegram        empty       0      0     0     0      0     2026-04-03 12:23
+Grant.Market              page      page_links      ok_dupes    29     0     1     0      15    2026-04-03 12:23
+Grant.Market              telegram  telegram        empty       0      0     0     0      0     2026-04-03 12:23
+GrantUP                   telegram  telegram        ok_new      9      0     0     1      6     2026-04-03 12:23
+GrantUP                   telegram  telegram        ok_dupes    9      0     0     0      7     2026-04-03 12:23
+Granty.org.ua             page      page_links      ok_dupes    20     0     3     0      14    2026-04-03 12:23
+House of Europe           page      page_links      ok_dupes    11     0     1     0      6     2026-04-03 12:23
+House of Europe           telegram  telegram        empty       0      0     0     0      0     2026-04-03 12:23
+IREX Ukraine              page      page_links      empty       0      0     0     0      0     2026-04-03 12:24
+Mercy Corps Ukraine       page      page_links      ENOTFOUND   0      0     0     0      0     2026-04-03 12:24
+Open Society (МФВ)        page      page_links      ok_dupes    4      0     1     0      3     2026-04-03 12:24
+Prostir (RSS)             rss       rss             ok_dupes    5      0     0     0      3     2026-04-03 12:24
+ReliefWeb Funding         rss       rss             empty       0      0     0     0      0     2026-04-03 12:24
+ReliefWeb UA              rss       rss             empty       0      0     0     0      0     2026-04-03 12:24
+UNDP Ukraine              telegram  telegram        empty       0      0     0     0      0     2026-04-03 12:24
+UNDP Ukraine              page      page_links      empty       0      0     0     0      0     2026-04-03 12:24
+USAID Ukraine             telegram  telegram        empty       0      0     0     0      0     2026-04-03 12:24
+docs.google.com           page      page_links      filtered    2      0     1     0      0     2026-04-03 12:24
+grant.market              page      page_links      ok_dupes    30     0     1     0      15    2026-04-03 12:24
+ІСАР Єднання              page      page_links      empty       0      0     12    0      0     2026-04-03 12:24
+ІСАР Єднання              telegram  telegram        empty       0      0     0     0      0     2026-04-03 12:24
+Ветеранський фонд — конку page      page_links      ok_dupes    6      0     1     0      6     2026-04-03 12:24
+Відновлення UA            telegram  telegram        empty       0      0     0     0      0     2026-04-03 12:24
+Відновлення гранти        rss       google_news_rss ok_new      4      8     0     1      1     2026-04-03 12:25
+ГУРТ                      telegram  telegram        empty       0      0     0     0      0     2026-04-03 12:25
+ГУРТ (RSS)                rss       rss             empty       0      0     2     0      0     2026-04-03 12:25
+Грант АВ                  page      page_links      ENOTFOUND   0      0     0     0      0     2026-04-03 12:25
+Гранти UA                 telegram  telegram        ok_dupes    1      0     0     0      1     2026-04-03 12:25
+Гранти Україна            rss       google_news_rss ok_new      23     0     0     2      12    2026-04-03 12:25
+Гранти громади            rss       google_news_rss ok_dupes    5      0     0     0      1     2026-04-03 12:25
+Гранти для ветеранів      rss       google_news_rss ok_dupes    1      2     0     0      1     2026-04-03 12:25
+Гранти та можливості      telegram  telegram        ok_dupes    18     0     0     0      12    2026-04-03 12:25
+Грантові фішки            telegram  telegram        ok_dupes    18     0     0     0      15    2026-04-03 12:25
+Грантові фішки ЄС         telegram  telegram        empty       0      0     0     0      0     2026-04-03 12:25
+Громадський простір       page      page_links      ok_dupes    5      0     0     0      3     2026-04-03 12:25
+Дія.Бізнес                page      page_links      empty       0      0     0     0      0     2026-04-03 12:25
+Дія.Бізнес                telegram  telegram        empty       0      0     0     0      0     2026-04-03 12:25
+Конкурси проєктів         rss       google_news_rss filtered    2      4     0     0      0     2026-04-03 12:25
+МФВ — конкурси та гранти  page      page_links      ok_dupes    36     0     2     0      13    2026-04-03 12:25
+Мікрогранти та бізнес     rss       google_news_rss ok_dupes    1      2     0     0      1     2026-04-03 12:25
+Міністерство розвитку гро page      page_links      ok_dupes    82     0     18    0      1     2026-04-03 12:25
+Простір                   telegram  telegram        empty       0      0     0     0      0     2026-04-03 12:25
+УКФ                       telegram  telegram        empty       0      0     0     0      0     2026-04-03 12:26
+УКФ (Укр. культурний фонд page      page_links      ok_dupes    7      0     0     0      7     2026-04-03 12:26
+Фонд Сх. Європа           page      page_links      ok_dupes    1      0     0     0      1     2026-04-03 12:26
+Фонд Сх. Європа           telegram  telegram        empty       0      0     0     0      0     2026-04-03 12:26
+Фонд Сх. Європа — конкурс page      page_links      ok_dupes    1      0     0     0      1     2026-04-03 12:26
+
+══════════════════════════════════════════════════════════════════
+МЕТОДИ СКАНУВАННЯ (parser_mode)
+══════════════════════════════════════════════════════════════════
+  google_news_rss      всього: 6    | ok: 6    | помилок: 0    | знайдено: 36     | нових: 3
+  page_links           всього: 24   | ok: 22   | помилок: 2    | знайдено: 258    | нових: 0
+  rss                  всього: 6    | ok: 5    | помилок: 1    | знайдено: 5      | нових: 0
+  telegram             всього: 19   | ok: 19   | помилок: 0    | знайдено: 55     | нових: 1
+
+══════════════════════════════════════════════════════════════════
+ДЕТАЛЬНИЙ ЛОГ ПО КОЖНОМУ ДЖЕРЕЛУ
+══════════════════════════════════════════════════════════════════
+
+❌ ══ Грант АВ ══
+  ID         : grant_av
+  URL        : https://grant.av.ua/
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── ПОМИЛКА ──
+  Код        : ENOTFOUND
+  Опис       : Домен не знайдено (DNS)
+  Повідомлення: request to https://grant.av.ua/ failed, reason: getaddrinfo EAI_AGAIN grant.av.ua
+
+  ── Кроки діагностики ──
+  [12:25:06] start                        {"parser":"page_links","url":"https://grant.av.ua/","maxNew":20,"override":false,"windowDays":7}
+  [12:25:06] parse_error                  {"retriable":false,"stack":"FetchError: request to https://grant.av.ua/ failed, reason: getaddrinfo EAI_AGAIN grant.av.ua |     at ClientRequest.<anonymous> (/workspace/node_modules/node-fetch/lib/index.js:1501:11) |     at ClientRequest.emit (node:events:524:28)","type":"system","error_label":"Доме…
+  [12:25:07] multi_grant                  {"added":0,"blocks_found":0}
+  [12:25:07] selection_gates              {"max_age_days":14,"non_ua_samples":[],"age_dropped":0,"age_samples":[],"non_ua_dropped":0}
+  [12:25:07] filter                       {"fallback_mode":false,"relaxed_mode":false,"filtered_samples":[],"raw":0,"passed":0,"filtered":0}
+  [12:25:07] cache_check                  {"urls_to_check":0}
+  [12:25:07] result                       {"detailed":0,"dupes":0,"is_multi":false,"created":0}
+
+  ── Попередження ──
+  🚨 Parse failed: request to https://grant.av.ua/ failed, reason: getaddrinfo EAI_AGAIN grant.av.ua
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:23    empty         0         0      0      
+  2026-04-03 07:52    empty         0         0      0      
+  2026-04-03 07:19    empty         0         0      0      
+  2026-04-03 06:48    empty         0         0      0      
+  2026-04-03 06:17    empty         0         0      0      
+  2026-04-03 05:46    empty         0         0      0      
+  2026-04-03 05:15    empty         0         0      0      
+  2026-04-03 04:44    empty         0         0      0      
+  2026-04-03 04:13    empty         0         0      0      
+  2026-04-03 03:42    empty         0         0      0      
+  2026-04-03 03:11    empty         0         0      0      
+  2026-04-03 12:25    empty         0         0      0      request to https://grant.av.ua/ failed, 
+  2026-04-03 11:23    empty         0         0      0      request to https://grant.av.ua/ failed, 
+  2026-04-03 10:48    empty         0         0      0      request to https://grant.av.ua/ failed, 
+  ──────────────────────────────────────────────────────────────────────
+
+❌ ══ Devex Ukraine ══
+  ID         : devex_ukraine
+  URL        : https://www.devex.com/rss/funding?country=ukraine
+  Тип        : rss
+  Парсер     : rss
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:22
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : 403
+  Мульти     : ні
+
+  ── ПОМИЛКА ──
+  Код        : HTTP_403
+  Опис       : Доступ заборонено (403)
+  Повідомлення: HTTP 403 from https://www.devex.com/rss/funding?country=ukraine
+
+  ── Кроки діагностики ──
+  [12:22:37] start                        {"maxNew":15,"override":false,"windowDays":90,"url":"https://www.devex.com/rss/funding?country=ukraine","parser":"rss"}
+  [12:22:37] rss_fetch                    {"ua_index":0,"http_status":403,"content_type":"text/html;charset=utf-8","attempt":0}
+  [12:22:37] rss_fetch_retry              {"next_attempt":1,"http_status":403}
+  [12:22:39] rss_fetch                    {"content_type":"text/html;charset=utf-8","attempt":1,"ua_index":1,"http_status":403}
+  [12:22:39] rss_fetch_retry              {"http_status":403,"next_attempt":2}
+  [12:22:41] rss_fetch                    {"http_status":403,"ua_index":2,"attempt":2,"content_type":"text/html;charset=utf-8"}
+  [12:22:41] rss_fetch_retry              {"http_status":403,"next_attempt":3}
+  [12:22:45] rss_fetch                    {"http_status":403,"ua_index":3,"attempt":3,"content_type":"text/html;charset=utf-8"}
+  [12:22:45] rss_fetch_done               {"http_status":403,"response_size":769}
+  [12:22:45] parse_error                  {"stack":"Error: HTTP 403 from https://www.devex.com/rss/funding?country=ukraine |     at parseRSS (/workspace/index.js:909:11) |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)","retriable":true,"code":"","type":"","error_label":"Доступ заборонено (403)","error":"H…
+  [12:22:45] selection_gates              {"age_samples":[],"non_ua_dropped":0,"non_ua_samples":[],"age_dropped":0,"max_age_days":14}
+  [12:22:45] filter                       {"fallback_mode":false,"relaxed_mode":false,"passed":0,"raw":0,"filtered_samples":[],"filtered":0}
+  [12:22:45] cache_check                  {"urls_to_check":0}
+  [12:22:45] result                       {"detailed":0,"created":0,"is_multi":false,"dupes":0}
+
+  ── Попередження ──
+  🚨 Parse failed: HTTP 403 from https://www.devex.com/rss/funding?country=ukraine
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:25    empty         0         0      0      
+  2026-04-03 07:54    empty         0         0      0      
+  2026-04-03 07:21    empty         0         0      0      
+  2026-04-03 06:50    empty         0         0      0      
+  2026-04-03 06:19    empty         0         0      0      
+  2026-04-03 05:48    empty         0         0      0      
+  2026-04-03 05:17    empty         0         0      0      
+  2026-04-03 04:46    empty         0         0      0      
+  2026-04-03 04:15    empty         0         0      0      
+  2026-04-03 03:44    empty         0         0      0      
+  2026-04-03 03:13    empty         0         0      0      
+  2026-04-03 12:22    empty         0         0      0      HTTP 403 from https://www.devex.com/rss/
+  2026-04-03 11:45    empty         0         0      0      HTTP 403 from https://www.devex.com/rss/
+  2026-04-03 10:51    empty         0         0      0      HTTP 403 from https://www.devex.com/rss/
+  ──────────────────────────────────────────────────────────────────────
+
+❌ ══ Mercy Corps Ukraine ══
+  ID         : mercy_corps_ua
+  URL        : https://www.mercycorps.org.ua/
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:24
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── ПОМИЛКА ──
+  Код        : ENOTFOUND
+  Опис       : Домен не знайдено (DNS)
+  Повідомлення: request to https://www.mercycorps.org.ua/ failed, reason: getaddrinfo ENOTFOUND www.mercycorps.org.ua
+
+  ── Кроки діагностики ──
+  [12:24:02] start                        {"parser":"page_links","url":"https://www.mercycorps.org.ua/","override":false,"maxNew":15,"windowDays":30}
+  [12:24:02] parse_error                  {"error_code":"ENOTFOUND","error":"request to https://www.mercycorps.org.ua/ failed, reason: getaddrinfo ENOTFOUND www.mercycorps.org.ua","error_label":"Домен не знайдено (DNS)","type":"system","code":"ENOTFOUND","retriable":false,"stack":"FetchError: request to https://www.mercycorps.org.ua/ failed…
+  [12:24:02] multi_grant                  {"blocks_found":0,"added":0}
+  [12:24:02] selection_gates              {"age_samples":[],"non_ua_dropped":0,"non_ua_samples":[],"age_dropped":0,"max_age_days":14}
+  [12:24:02] filter                       {"filtered_samples":[],"passed":0,"raw":0,"filtered":0,"fallback_mode":false,"relaxed_mode":false}
+  [12:24:02] cache_check                  {"urls_to_check":0}
+  [12:24:02] result                       {"detailed":0,"is_multi":false,"created":0,"dupes":0}
+
+  ── Попередження ──
+  🚨 Parse failed: request to https://www.mercycorps.org.ua/ failed, reason: getaddrinfo ENOTFOUND www.mercycorps.org.ua
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:24    empty         0         0      0      request to https://www.mercycorps.org.ua
+  2026-04-03 12:00    empty         0         0      0      request to https://www.mercycorps.org.ua
+  2026-04-03 11:06    empty         0         0      0      request to https://www.mercycorps.org.ua
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Ветеранський фонд — конкурси ══
+  ID         : veteran_fund_contests
+  URL        : https://veteranfund.com.ua/contests/
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 60
+  Ліміт      : 20
+  Всього знайдено за весь час: 6
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:24
+  Статус     : ok_dupes
+  Знайдено   : 6
+  Після фільтру: 6
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 1
+  Fallback фільтр: так
+  Нових      : 0
+  Дублів     : 6
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:24:45] start                        {"parser":"page_links","url":"https://veteranfund.com.ua/contests/","override":false,"maxNew":20,"windowDays":60}
+  [12:24:50] parsed                       {"raw_count":7,"sample_titles":["Варто: підтримка ветеранського бізнесу","Психологічна підтримка","Соціальні гарантії та пільги для ветеранів"],"multi_blocks":0}
+  [12:24:53] multi_grant                  {"added":0,"blocks_found":0}
+  [12:24:53] selection_gates              {"age_samples":[],"non_ua_dropped":1,"non_ua_samples":["Ветеран PRO"],"age_dropped":0,"max_age_days":14}
+  [12:24:53] filter_fallback_category_pag {"raw":6,"passed":6,"sample_titles":["Варто: підтримка ветеранського бізнесу","Психологічна підтримка","Соціальні гарантії та пільги для ветеранів","Залишити відгук","Міністерство у справах ветеранів"]}
+  [12:24:53] filter                       {"filtered":6,"passed":6,"raw":6,"filtered_samples":["Варто: підтримка ветеранського бізнесу","Психологічна підтримка","Соціальні гарантії та пільги для ветеранів","Залишити відгук","Міністерство у справах ветеранів"],"relaxed_mode":false,"fallback_mode":true}
+  [12:24:53] cache_check                  {"urls_to_check":6}
+  [12:24:53] result                       {"detailed":0,"created":0,"is_multi":false,"dupes":6}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 6
+     dup_cache: veteranfund.com.ua/contests/varto-support-veteran-business
+     dup_cache: veteranfund.com.ua/projects/hot_line
+     dup_cache: veteranfund.com.ua/legal_consultations/social-garnt-pilgi
+     dup_cache: veteranfund.com.ua/forma-vidhukiv-pro-posluhy-hromadskykh-orhanizatsiy
+     dup_cache: facebook.com/mva.gov.ua
+     dup_cache: veteranfund.com.ua/opportunity/who-are-war-veterans-and-how-is-confirm
+  ⚠️  non_ua_dropped: 1
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:24    ok_dupes      6         0      6      
+  2026-04-03 12:11    ok_dupes      6         0      6      
+  2026-04-03 11:17    ok_dupes      6         0      6      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Відновлення гранти ══
+  ID         : google_news_vidnovlennia
+  URL        : https://news.google.com/rss/search?q=%D0%B2%D1%96%D0%B4%D0%BD%D0%BE%D0%B2%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F+%D0%B3%D1%80%D0%B0%D0%BD%D1%82&hl=uk&gl=UA&ceid=UA:uk
+  Тип        : rss
+  Парсер     : google_news_rss
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 6
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : ok_new
+  Знайдено   : 4
+  Після фільтру: 2
+  Відсіяно >14 днів: 8
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 1
+  Дублів     : 1
+  Деталей    : 1
+  HTTP       : 200
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:24:56] start                        {"parser":"google_news_rss","windowDays":30,"override":false,"maxNew":15,"url":"https://news.google.com/rss/search?q=%D0%B2%D1%96%D0%B4%D0%BD%D0%BE%D0%B2%D0%BB%D0%B5%D0%BD%D0%BD%D1%8F+%D0%B3%D1%80%D0%B0%D0%BD%D1%82&hl=uk&gl=UA&ceid=UA:uk"}
+  [12:24:57] rss_fetch                    {"http_status":200,"ua_index":0,"attempt":0,"content_type":"application/xml; charset=utf-8"}
+  [12:24:57] rss_fetch_done               {"http_status":200,"response_size":152925}
+  [12:24:57] rss_channel                  {"channel_title":"\"відновлення грант\" - Google Новини","total_items":100}
+  [12:24:57] rss_entries_total            {"count":100}
+  [12:24:57] parsed                       {"raw_count":12,"sample_titles":["Запит на подання заявок “Підвищення потенціалу в галузі упра","В Україні попит на гранти для відновлення виробництва зріс н","Переробники подали 140 заявок на відновлення підприємств"],"multi_blocks":0}
+  [12:24:57] selection_gates              {"non_ua_dropped":0,"age_samples":["В Україні попит на гранти для відновлення виробництва зріс н [Thu, 19 Mar 2026 13:]","Переробники подали 140 заявок на відновлення підприємств [Thu, 19 Mar 2026 13:]","ДО 16 000 000 ГРН — ГРАНТИ НА ВІДНОВЛЕННЯ ПЕРЕРОБНИХ ПІДПРИЄ [Wed, 18 Mar 2026 07:]","Уряд схвал…
+  [12:24:57] filter                       {"filtered_samples":["Запит на подання заявок “Підвищення потенціалу в галузі упра","Грант на розвиток обласних Мереж робочих груп із залучення г"],"raw":4,"passed":2,"filtered":2,"fallback_mode":false,"relaxed_mode":false}
+  [12:24:57] cache_check                  {"urls_to_check":2}
+  [12:25:01] result                       {"detailed":1,"created":1,"is_multi":false,"dupes":1}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 1
+     dup_cache: https://news.google.com/rss/articles/cbmiyafbvv95cuxpr1rlogdhaxnjcksxq
+  ⚠️  age_dropped: 8
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:25    ok_new        4         1      1      
+  2026-04-03 12:14    empty         0         0      0      HTTP 503 from https://news.google.com/rs
+  2026-04-03 11:20    empty         0         0      0      HTTP 503 from https://news.google.com/rs
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Відновлення UA ══
+  ID         : tg_relief_ua
+  URL        : https://t.me/s/recovery_ua_grants
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:24
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:24:54] start                        {"parser":"telegram","url":"https://t.me/s/recovery_ua_grants","windowDays":30,"maxNew":15,"override":false}
+  [12:24:55] parsed                       {"sample_titles":[],"raw_count":0,"multi_blocks":0}
+  [12:24:55] selection_gates              {"max_age_days":14,"non_ua_dropped":0,"age_samples":[],"age_dropped":0,"non_ua_samples":[]}
+  [12:24:55] filter                       {"relaxed_mode":false,"fallback_mode":false,"filtered":0,"filtered_samples":[],"passed":0,"raw":0}
+  [12:24:55] cache_check                  {"urls_to_check":0}
+  [12:24:55] result                       {"created":0,"is_multi":false,"dupes":0,"detailed":0}
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:24    empty         0         0      0      
+  2026-04-03 12:13    empty         0         0      0      
+  2026-04-03 11:19    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Гранти громади ══
+  ID         : google_news_grants_hromady
+  URL        : https://news.google.com/rss/search?q=гранти+для+громад&hl=uk&gl=UA&ceid=UA:uk
+  Тип        : rss
+  Парсер     : google_news_rss
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 67
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : ok_dupes
+  Знайдено   : 5
+  Після фільтру: 1
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 1
+  Деталей    : 0
+  HTTP       : 200
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:25:19] start                        {"windowDays":7,"override":false,"maxNew":20,"url":"https://news.google.com/rss/search?q=гранти+для+громад&hl=uk&gl=UA&ceid=UA:uk","parser":"google_news_rss"}
+  [12:25:20] rss_fetch                    {"content_type":"application/xml; charset=utf-8","attempt":0,"ua_index":0,"http_status":200}
+  [12:25:20] rss_fetch_done               {"response_size":138268,"http_status":200}
+  [12:25:20] rss_channel                  {"total_items":100,"channel_title":"\"гранти для громад\" - Google Новини"}
+  [12:25:20] rss_entries_total            {"count":100}
+  [12:25:20] parsed                       {"multi_blocks":0,"raw_count":5,"sample_titles":["Гранти Президента України для молоді з малих громад","Продовжено терміни: Гранти Президента України для молоді з м","Представники громад Буковини дізналися про гранти, ваучери т"]}
+  [12:25:20] selection_gates              {"age_dropped":0,"non_ua_samples":[],"non_ua_dropped":0,"age_samples":[],"max_age_days":14}
+  [12:25:20] filter                       {"fallback_mode":false,"relaxed_mode":false,"raw":5,"passed":1,"filtered_samples":["Гранти Президента України для молоді з малих громад","Продовжено терміни: Гранти Президента України для молоді з м","Представники громад Буковини дізналися про гранти, ваучери т","Гранти для бізнесу: цифрові рішення …
+  [12:25:20] cache_check                  {"urls_to_check":1}
+  [12:25:20] result                       {"detailed":0,"is_multi":false,"created":0,"dupes":1}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 1
+     dup_cache: https://news.google.com/rss/articles/cbmirgfbvv95cuxqohhhoe91te5gazaxy
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:20    ok_dupes      6         0      2      
+  2026-04-03 07:49    ok_dupes      6         0      2      
+  2026-04-03 07:16    ok_dupes      6         0      2      
+  2026-04-03 06:45    ok_dupes      6         0      2      
+  2026-04-03 06:14    ok_dupes      6         0      2      
+  2026-04-03 05:43    ok_dupes      6         0      2      
+  2026-04-03 05:12    ok_dupes      6         0      2      
+  2026-04-03 04:41    ok_dupes      6         0      2      
+  2026-04-03 04:10    ok_dupes      6         0      2      
+  2026-04-03 03:39    ok_dupes      6         0      2      
+  2026-04-03 03:08    empty         0         0      0      
+  2026-04-03 12:25    ok_dupes      5         0      1      
+  2026-04-03 11:26    empty         0         0      0      HTTP 503 from https://news.google.com/rs
+  2026-04-03 10:48    ok_dupes      6         0      2      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Гранти для ветеранів ══
+  ID         : google_news_veteran_grants
+  URL        : https://news.google.com/rss/search?q=гранти+для+ветеранів+Україна&hl=uk&gl=UA&ceid=UA:uk
+  Тип        : rss
+  Парсер     : google_news_rss
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 20
+  Всього знайдено за весь час: 4
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : ok_dupes
+  Знайдено   : 1
+  Після фільтру: 1
+  Відсіяно >14 днів: 2
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 1
+  Деталей    : 0
+  HTTP       : 200
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:25:21] start                        {"parser":"google_news_rss","override":false,"maxNew":20,"windowDays":30,"url":"https://news.google.com/rss/search?q=гранти+для+ветеранів+Україна&hl=uk&gl=UA&ceid=UA:uk"}
+  [12:25:21] rss_fetch                    {"ua_index":0,"http_status":200,"content_type":"application/xml; charset=utf-8","attempt":0}
+  [12:25:21] rss_fetch_done               {"http_status":200,"response_size":96990}
+  [12:25:22] rss_channel                  {"total_items":64,"channel_title":"\"гранти для ветеранів Україна\" - Google Новини"}
+  [12:25:22] rss_entries_total            {"count":64}
+  [12:25:22] parsed                       {"multi_blocks":0,"sample_titles":["Гранти для ветеранів і стартапів до $500 000 на Web3: в Укра","Які гранти може отримати бізнес та ветерани в Україні: суми ","Грант для ветеранів – як отримати 1 мільйон гривень на власн"],"raw_count":3}
+  [12:25:22] selection_gates              {"max_age_days":14,"age_dropped":2,"non_ua_samples":[],"non_ua_dropped":0,"age_samples":["Які гранти може отримати бізнес та ветерани в Україні: суми  [Thu, 12 Mar 2026 07:]","Грант для ветеранів – як отримати 1 мільйон гривень на власн [Sun, 08 Mar 2026 08:]"]}
+  [12:25:22] filter                       {"filtered_samples":[],"raw":1,"passed":1,"filtered":0,"fallback_mode":false,"relaxed_mode":false}
+  [12:25:22] cache_check                  {"urls_to_check":1}
+  [12:25:22] result                       {"dupes":1,"is_multi":false,"created":0,"detailed":0}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 1
+     dup_cache: https://news.google.com/rss/articles/cbmixwfbvv95cuxqwjhbuu02bvhvqurvt
+  ⚠️  age_dropped: 2
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:25    ok_dupes      1         0      1      
+  2026-04-03 11:27    empty         0         0      0      HTTP 503 from https://news.google.com/rs
+  2026-04-03 10:48    ok_dupes      1         0      1      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Гранти та можливості ══
+  ID         : tg_grants_here
+  URL        : https://t.me/s/grants_here
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 28
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : ok_dupes
+  Знайдено   : 18
+  Після фільтру: 12
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 12
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:25:23] start                        {"parser":"telegram","url":"https://t.me/s/grants_here","windowDays":7,"override":false,"maxNew":20}
+  [12:25:25] parsed                       {"raw_count":18,"sample_titles":["Третя хвиля програми «Спадщина. Простір для роботи» для гром","Гранти на розвиток обласних Мереж робочих груп із залучення ","Конкурс «Підготовка до вступу у ЄС на рівні громад 2.0» від "],"multi_blocks":0}
+  [12:25:25] selection_gates              {"non_ua_samples":[],"age_dropped":0,"age_samples":[],"non_ua_dropped":0,"max_age_days":14}
+  [12:25:25] filter                       {"filtered":6,"filtered_samples":["Третя хвиля програми «Спадщина. Простір для роботи» для гром","Гранти на розвиток обласних Мереж робочих груп із залучення ","Підбірка конкурсів з актуальними дедлайнами: демократія, пра","Гранти на проєкти з розвитку співпраці та демократії  від По","Оплачуване ст…
+  [12:25:25] cache_check                  {"urls_to_check":11}
+  [12:25:26] result                       {"detailed":0,"dupes":12,"is_multi":false,"created":0}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 12
+     dup_cache: irf.ua/contest/konkurs-pidgotovka-do-vstupu-u-yes-na-rivni-gromad-2-0
+     dup_cache: ngoacademy.net/clpu2026
+     dup_cache: help-ukraine.org.ua/announcements/dlya-vlasnikiv-mikrobiznesu
+     dup_cache: prostir.ua
+     dup_cache: leaderstech.eu
+     dup_cache: creativitypioneersfund.org/opencall
+     dup_cache: uasp.mercycorps.org/page/yqyemkng
+     dup_cache: docs.google.com/document/d/1enttho5hyqbp50nx0mxgkh-hwr1xe3v8/edit
+     dup_cache: silabua.com/post/startup4good3-call
+     dup_cache: standwukraine.org/uk/granty-ua
+     … ще 2
+
+  ── Історія останніх 13 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:10    ok_dupes      19        0      10     
+  2026-04-03 07:39    ok_dupes      19        0      10     
+  2026-04-03 07:06    ok_dupes      19        0      10     
+  2026-04-03 06:35    ok_dupes      19        0      10     
+  2026-04-03 06:04    ok_dupes      19        0      10     
+  2026-04-03 05:33    ok_dupes      19        0      10     
+  2026-04-03 05:02    ok_dupes      19        0      10     
+  2026-04-03 04:31    ok_dupes      19        0      10     
+  2026-04-03 04:00    ok_dupes      19        0      10     
+  2026-04-03 03:29    ok_dupes      19        0      10     
+  2026-04-03 12:25    ok_dupes      18        0      12     
+  2026-04-03 11:28    ok_dupes      18        0      11     
+  2026-04-03 10:48    ok_dupes      18        0      11     
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Гранти Україна ══
+  ID         : google_news_grants_ua
+  URL        : https://news.google.com/rss/search?q=гранти+Україна&hl=uk&gl=UA&ceid=UA:uk
+  Тип        : rss
+  Парсер     : google_news_rss
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 108
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : ok_new
+  Знайдено   : 23
+  Після фільтру: 14
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 2
+  Дублів     : 12
+  Деталей    : 2
+  HTTP       : 200
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:25:10] start                        {"url":"https://news.google.com/rss/search?q=гранти+Україна&hl=uk&gl=UA&ceid=UA:uk","override":false,"maxNew":20,"windowDays":7,"parser":"google_news_rss"}
+  [12:25:10] rss_fetch                    {"content_type":"application/xml; charset=utf-8","attempt":0,"ua_index":0,"http_status":200}
+  [12:25:10] rss_fetch_done               {"response_size":157573,"http_status":200}
+  [12:25:10] rss_channel                  {"total_items":100,"channel_title":"\"гранти Україна\" - Google Новини"}
+  [12:25:10] rss_entries_total            {"count":100}
+  [12:25:10] parsed                       {"sample_titles":["Гранти Президента України для молоді з малих громад","Нові гранти від держави: хто зможе отримати до 30 тисяч на п","ГРАНТИ – дайджест актуальних можливостей"],"raw_count":23,"multi_blocks":0}
+  [12:25:10] selection_gates              {"age_dropped":0,"non_ua_samples":[],"non_ua_dropped":0,"age_samples":[],"max_age_days":14}
+  [12:25:10] filter                       {"filtered":9,"filtered_samples":["Гранти Президента України для молоді з малих громад","ГРАНТИ – дайджест актуальних можливостей","Уряд видаватиме гранти на навчання у сфері оборонного виробн","Гранти на навчання для професій у сфері ОПК: уряд запускає е","Гранти та компенсації роботодавцям: держав…
+  [12:25:10] cache_check                  {"urls_to_check":14}
+  [12:25:18] result                       {"detailed":2,"created":2,"is_multi":false,"dupes":12}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 12
+     dup_cache: https://news.google.com/rss/articles/cbmirwjbvv95cuxny3nhsnrzog4ytmtsm
+     dup_cache: https://news.google.com/rss/articles/cbmitwfbvv95cuxoadd4t05scfpocf9ic
+     dup_cache: https://news.google.com/rss/articles/cbmif0fvx3lxtfbsd3d1cgh4sk5ca3jho
+     dup_cache: https://news.google.com/rss/articles/cbmiywfbvv95cuxome5fsk51ohzqc0vfq
+     dup_cache: https://news.google.com/rss/articles/cbmiugfbvv95cuxpbw5vwlzrmhjvlvlrw
+     dup_cache: https://news.google.com/rss/articles/cbmiigfbvv95cuxod0xvnmfkajzuu0j3d
+     dup_cache: https://news.google.com/rss/articles/cbmit0fvx3lxte5szjfjyldvr29jaxjaq
+     dup_cache: https://news.google.com/rss/articles/cbmiyafbvv95cuxoukn3wk5dd3rongstn
+     dup_cache: https://news.google.com/rss/articles/cbmipafbvv95cuxqnldlyzlkc0fjnlh4s
+     dup_cache: https://news.google.com/rss/articles/cbmiqafbvv95cuxnuelkbwvra09ncwtxd
+     … ще 2
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:22    ok_dupes      19        0      10     
+  2026-04-03 07:51    ok_dupes      20        0      11     
+  2026-04-03 07:18    ok_dupes      21        0      11     
+  2026-04-03 06:47    ok_dupes      21        0      11     
+  2026-04-03 06:16    ok_dupes      19        0      11     
+  2026-04-03 05:45    ok_new        20        1      10     
+  2026-04-03 05:14    ok_new        21        2      11     
+  2026-04-03 04:43    ok_dupes      18        0      10     
+  2026-04-03 04:12    ok_dupes      18        0      10     
+  2026-04-03 03:41    ok_new        18        1      9      
+  2026-04-03 03:10    empty         0         0      0      
+  2026-04-03 12:25    ok_new        23        2      12     
+  2026-04-03 11:25    empty         0         0      0      HTTP 503 from https://news.google.com/rs
+  2026-04-03 10:48    ok_dupes      20        0      13     
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Гранти UA ══
+  ID         : tg_grantsua
+  URL        : https://t.me/s/grantsua
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 23
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : ok_dupes
+  Знайдено   : 1
+  Після фільтру: 1
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 1
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:25:08] start                        {"url":"https://t.me/s/grantsua","override":false,"maxNew":20,"windowDays":7,"parser":"telegram"}
+  [12:25:09] parsed                       {"multi_blocks":0,"raw_count":1,"sample_titles":["У кожного підприємця є лише 2 шляхи:"]}
+  [12:25:09] selection_gates              {"age_dropped":0,"non_ua_samples":[],"non_ua_dropped":0,"age_samples":[],"max_age_days":14}
+  [12:25:09] filter                       {"fallback_mode":false,"relaxed_mode":false,"raw":1,"passed":1,"filtered_samples":[],"filtered":0}
+  [12:25:09] cache_check                  {"urls_to_check":1}
+  [12:25:09] result                       {"detailed":0,"is_multi":false,"created":0,"dupes":1}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 1
+     dup_cache: t.me/grantsua/1430
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:33    ok_dupes      1         0      1      
+  2026-04-03 08:02    ok_dupes      1         0      1      
+  2026-04-03 07:29    ok_dupes      1         0      1      
+  2026-04-03 06:58    ok_dupes      1         0      1      
+  2026-04-03 06:27    ok_dupes      1         0      1      
+  2026-04-03 05:56    ok_dupes      1         0      1      
+  2026-04-03 05:25    ok_dupes      1         0      1      
+  2026-04-03 04:54    ok_dupes      1         0      1      
+  2026-04-03 04:23    ok_dupes      1         0      1      
+  2026-04-03 03:52    ok_dupes      1         0      1      
+  2026-04-03 03:21    ok_dupes      1         0      1      
+  2026-04-03 12:25    ok_dupes      1         0      1      
+  2026-04-03 11:24    ok_dupes      1         0      1      
+  2026-04-03 10:48    ok_dupes      1         0      1      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Грантові фішки ══
+  ID         : tg_grantovyphishky
+  URL        : https://t.me/s/grantovyphishky
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 36
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : ok_dupes
+  Знайдено   : 18
+  Після фільтру: 15
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 15
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:25:27] start                        {"url":"https://t.me/s/grantovyphishky","maxNew":20,"override":false,"windowDays":7,"parser":"telegram"}
+  [12:25:28] parsed                       {"sample_titles":["🌎 Тренінг «Практичні аспекти участі у Програмі “Горизонт Єв","🌍 Грантовий конкурс Міжнародного фонду культурного розмаїтт","🌎Гранти для медіа, які пишуть про громадянську участь 🌻Укр"],"raw_count":18,"multi_blocks":0}
+  [12:25:28] selection_gates              {"non_ua_samples":[],"age_dropped":0,"age_samples":[],"non_ua_dropped":0,"max_age_days":14}
+  [12:25:28] filter                       {"filtered":3,"filtered_samples":["Книга «Українка будує світ» — історії жінок про силу, вибір ","📘 Добірка індивідуальних грантів на поїздки у США","🌎 ГО \"Ла Страда–Україна\" -  очний дводенний тренінг \"Розбуд"],"passed":15,"raw":18,"relaxed_mode":false,"fallback_mode":false}
+  [12:25:28] cache_check                  {"urls_to_check":15}
+  [12:25:30] result                       {"is_multi":false,"created":0,"dupes":15,"detailed":0}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 15
+     dup_cache: docs.google.com/forms/d/e/1faipqlsfwnhtet-bbzejh6a2cybmdi3eeph-gll4xbk
+     dup_cache: tinyurl.com/unescofcsd
+     dup_cache: bit.ly/civic-activism-grants
+     dup_cache: ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/cerv/wp
+     dup_cache: cutt.ly/gtazbrbs
+     dup_cache: shorturl.at/hmsad
+     dup_cache: ednn.link/61qbzv
+     dup_cache: veteran-reintegration.in.ua/gromadskym-organizacziyam/grant-dlya-go-na
+     dup_cache: creativitypioneersfund.org/opencall
+     dup_cache: instagram.com/p/dwmopemjn9p
+     … ще 5
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:39    ok_dupes      18        0      15     
+  2026-04-03 08:08    ok_dupes      18        0      15     
+  2026-04-03 07:37    ok_dupes      18        0      15     
+  2026-04-03 07:04    ok_dupes      18        0      15     
+  2026-04-03 06:33    ok_dupes      18        0      15     
+  2026-04-03 06:02    ok_dupes      18        0      15     
+  2026-04-03 05:31    ok_dupes      18        0      15     
+  2026-04-03 05:00    ok_dupes      18        0      15     
+  2026-04-03 04:29    ok_dupes      18        0      15     
+  2026-04-03 03:58    ok_dupes      18        0      15     
+  2026-04-03 03:27    ok_dupes      18        0      15     
+  2026-04-03 12:25    ok_dupes      18        0      15     
+  2026-04-03 11:29    ok_dupes      18        0      15     
+  2026-04-03 10:48    ok_dupes      18        0      15     
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Грантові фішки ЄС ══
+  ID         : tg_grantovyphishky_eu
+  URL        : https://t.me/s/grantovyphishky_eu
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:25:31] start                        {"parser":"telegram","url":"https://t.me/s/grantovyphishky_eu","maxNew":20,"override":false,"windowDays":7}
+  [12:25:31] parsed                       {"multi_blocks":0,"raw_count":0,"sample_titles":[]}
+  [12:25:31] selection_gates              {"non_ua_samples":[],"age_dropped":0,"age_samples":[],"non_ua_dropped":0,"max_age_days":14}
+  [12:25:31] filter                       {"fallback_mode":false,"relaxed_mode":false,"passed":0,"raw":0,"filtered_samples":[],"filtered":0}
+  [12:25:31] cache_check                  {"urls_to_check":0}
+  [12:25:31] result                       {"is_multi":false,"created":0,"dupes":0,"detailed":0}
+
+  ── Історія останніх 13 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:09    empty         0         0      0      
+  2026-04-03 07:38    empty         0         0      0      
+  2026-04-03 07:05    empty         0         0      0      
+  2026-04-03 06:34    empty         0         0      0      
+  2026-04-03 06:03    empty         0         0      0      
+  2026-04-03 05:32    empty         0         0      0      
+  2026-04-03 05:01    empty         0         0      0      
+  2026-04-03 04:30    empty         0         0      0      
+  2026-04-03 03:59    empty         0         0      0      
+  2026-04-03 03:28    empty         0         0      0      
+  2026-04-03 12:25    empty         0         0      0      
+  2026-04-03 11:30    empty         0         0      0      
+  2026-04-03 10:48    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Громадський простір ══
+  ID         : hromadskyi_prostir
+  URL        : https://www.prostir.ua/?grants=all
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : ok_dupes
+  Знайдено   : 5
+  Після фільтру: 3
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 3
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : так
+
+  ── Кроки діагностики ──
+  [12:25:32] start                        {"parser":"page_links","url":"https://www.prostir.ua/category/grants/","override":true,"maxNew":15,"windowDays":30}
+  [12:25:33] parsed                       {"raw_count":2,"sample_titles":["Нові конкурси","Конкурс «Благодійна Україна» — номінація «Доброчинність у сф"],"multi_blocks":0}
+  [12:25:34] multi_grant                  {"blocks_found":3,"added":3}
+  [12:25:34] selection_gates              {"non_ua_dropped":0,"age_samples":[],"age_dropped":0,"non_ua_samples":[],"max_age_days":14}
+  [12:25:34] filter                       {"relaxed_mode":false,"fallback_mode":false,"filtered":2,"filtered_samples":["Нові конкурси","Конкурс «Благодійна Україна» — номінація «Доброчинність у сф"],"passed":3,"raw":5}
+  [12:25:34] cache_check                  {"urls_to_check":1}
+  [12:25:35] result                       {"detailed":0,"created":0,"is_multi":true,"dupes":3}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 3
+     dup_cache: prostir.ua
+     dup_cache: prostir.ua
+     dup_cache: prostir.ua
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:25    ok_dupes      5         0      3      
+  2026-04-03 11:31    ok_dupes      5         0      3      
+  2026-04-03 10:48    ok_dupes      5         0      3      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ ГУРТ ══
+  ID         : tg_gurtrc
+  URL        : https://t.me/s/gaborets
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:25:02] start                        {"parser":"telegram","windowDays":7,"override":false,"maxNew":20,"url":"https://t.me/s/gaborets"}
+  [12:25:03] parsed                       {"sample_titles":[],"raw_count":0,"multi_blocks":0}
+  [12:25:03] selection_gates              {"non_ua_dropped":0,"age_samples":[],"age_dropped":0,"non_ua_samples":[],"max_age_days":14}
+  [12:25:03] filter                       {"filtered":0,"raw":0,"passed":0,"filtered_samples":[],"relaxed_mode":false,"fallback_mode":false}
+  [12:25:03] cache_check                  {"urls_to_check":0}
+  [12:25:03] result                       {"detailed":0,"dupes":0,"created":0,"is_multi":false}
+
+  ── Історія останніх 13 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:11    empty         0         0      0      
+  2026-04-03 07:40    empty         0         0      0      
+  2026-04-03 07:07    empty         0         0      0      
+  2026-04-03 06:36    empty         0         0      0      
+  2026-04-03 06:05    empty         0         0      0      
+  2026-04-03 05:34    empty         0         0      0      
+  2026-04-03 05:03    empty         0         0      0      
+  2026-04-03 04:32    empty         0         0      0      
+  2026-04-03 04:01    empty         0         0      0      
+  2026-04-03 03:30    empty         0         0      0      
+  2026-04-03 12:25    empty         0         0      0      
+  2026-04-03 12:15    empty         0         0      0      
+  2026-04-03 11:21    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ ГУРТ (RSS) ══
+  ID         : gurt_rss
+  URL        : https://gurt.org.ua/grants/feed/
+  Тип        : rss
+  Парсер     : rss
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 2
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:25:03] start                        {"url":"https://gurt.org.ua/grants/feed/","maxNew":20,"override":false,"windowDays":90,"parser":"page_links"}
+  [12:25:05] parsed                       {"multi_blocks":0,"sample_titles":["Гроші","Гроші"],"raw_count":2}
+  [12:25:05] multi_grant                  {"blocks_found":0,"added":0}
+  [12:25:05] selection_gates              {"max_age_days":14,"non_ua_samples":["Гроші","Гроші"],"age_dropped":0,"age_samples":[],"non_ua_dropped":2}
+  [12:25:05] filter                       {"relaxed_mode":false,"fallback_mode":false,"filtered":0,"filtered_samples":[],"raw":0,"passed":0}
+  [12:25:05] cache_check                  {"urls_to_check":0}
+  [12:25:05] result                       {"detailed":0,"created":0,"is_multi":false,"dupes":0}
+
+  ── Попередження ──
+  ⚠️  non_ua_dropped: 2
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:28    empty         0         0      0      
+  2026-04-03 07:57    empty         0         0      0      
+  2026-04-03 07:24    empty         0         0      0      
+  2026-04-03 06:53    empty         0         0      0      
+  2026-04-03 06:22    empty         0         0      0      
+  2026-04-03 05:51    empty         0         0      0      
+  2026-04-03 05:20    empty         0         0      0      
+  2026-04-03 04:49    empty         0         0      0      
+  2026-04-03 04:18    empty         0         0      0      
+  2026-04-03 03:47    empty         0         0      0      
+  2026-04-03 03:16    empty         0         0      0      
+  2026-04-03 12:25    empty         0         0      0      
+  2026-04-03 11:22    empty         0         0      0      
+  2026-04-03 10:48    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Дія.Бізнес ══
+  ID         : diia_business
+  URL        : https://business.diia.gov.ua/cases/grant
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:25:36] start                        {"url":"https://business.diia.gov.ua/api/v1/cases?category=grant&page=1&limit=20","maxNew":20,"override":true,"windowDays":7,"parser":"page_links"}
+  [12:25:36] parsed                       {"raw_count":0,"sample_titles":[],"multi_blocks":0}
+  [12:25:37] multi_grant                  {"added":0,"blocks_found":0}
+  [12:25:37] selection_gates              {"age_dropped":0,"non_ua_samples":[],"non_ua_dropped":0,"age_samples":[],"max_age_days":14}
+  [12:25:37] filter                       {"relaxed_mode":false,"fallback_mode":false,"filtered":0,"filtered_samples":[],"passed":0,"raw":0}
+  [12:25:37] cache_check                  {"urls_to_check":0}
+  [12:25:37] result                       {"created":0,"is_multi":false,"dupes":0,"detailed":0}
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:15    empty         0         0      0      
+  2026-04-03 07:44    empty         0         0      0      
+  2026-04-03 07:11    empty         0         0      0      
+  2026-04-03 06:40    empty         0         0      0      
+  2026-04-03 06:09    empty         0         0      0      
+  2026-04-03 05:38    empty         0         0      0      
+  2026-04-03 05:07    empty         0         0      0      
+  2026-04-03 04:36    empty         0         0      0      
+  2026-04-03 04:05    empty         0         0      0      
+  2026-04-03 03:34    empty         0         0      0      
+  2026-04-03 03:03    empty         0         0      0      
+  2026-04-03 12:25    empty         0         0      0      
+  2026-04-03 11:32    empty         0         0      0      
+  2026-04-03 10:48    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Дія.Бізнес ══
+  ID         : tg_diia_business
+  URL        : https://t.me/s/diia_business
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:25:37] start                        {"parser":"telegram","url":"https://t.me/s/diia_business","windowDays":30,"maxNew":15,"override":false}
+  [12:25:38] parsed                       {"raw_count":0,"sample_titles":[],"multi_blocks":0}
+  [12:25:38] selection_gates              {"non_ua_samples":[],"age_dropped":0,"age_samples":[],"non_ua_dropped":0,"max_age_days":14}
+  [12:25:38] filter                       {"raw":0,"passed":0,"filtered_samples":[],"filtered":0,"fallback_mode":false,"relaxed_mode":false}
+  [12:25:38] cache_check                  {"urls_to_check":0}
+  [12:25:38] result                       {"dupes":0,"created":0,"is_multi":false,"detailed":0}
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:25    empty         0         0      0      
+  2026-04-03 11:33    empty         0         0      0      
+  2026-04-03 10:48    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ ІСАР Єднання ══
+  ID         : ednannia_grants
+  URL        : https://ednannia.ua/en/news
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 20
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:24
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 12
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : так
+
+  ── Кроки діагностики ──
+  [12:24:41] start                        {"parser":"page_links","url":"https://ednannia.ua/en/news","windowDays":90,"override":true,"maxNew":20}
+  [12:24:42] parsed                       {"raw_count":8,"sample_titles":["Main Projects","Small Grants for Social Services","We Are Pleased to Announce the Winners of the Community Spar"],"multi_blocks":0}
+  [12:24:43] multi_grant                  {"added":4,"blocks_found":10}
+  [12:24:43] selection_gates              {"age_samples":[],"non_ua_dropped":12,"non_ua_samples":["Main Projects","Small Grants for Social Services","We Are Pleased to Announce the Winners of the Community Spar","The School of Organizational Development for the second coho","The second module of the Organizational Development School h"],"ag…
+  [12:24:43] filter                       {"relaxed_mode":false,"fallback_mode":false,"filtered":0,"filtered_samples":[],"raw":0,"passed":0}
+  [12:24:43] cache_check                  {"urls_to_check":0}
+  [12:24:43] result                       {"detailed":0,"dupes":0,"created":0,"is_multi":true}
+
+  ── Попередження ──
+  ⚠️  non_ua_dropped: 12
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:16    empty         0         0      0      
+  2026-04-03 07:45    empty         0         0      0      
+  2026-04-03 07:12    empty         0         0      0      
+  2026-04-03 06:41    empty         0         0      0      
+  2026-04-03 06:10    empty         0         0      0      
+  2026-04-03 05:39    empty         0         0      0      
+  2026-04-03 05:08    empty         0         0      0      
+  2026-04-03 04:37    empty         0         0      0      
+  2026-04-03 04:06    empty         0         0      0      
+  2026-04-03 03:35    empty         0         0      0      
+  2026-04-03 03:04    empty         0         0      0      
+  2026-04-03 12:24    empty         0         0      0      
+  2026-04-03 12:09    empty         0         0      0      
+  2026-04-03 11:15    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ ІСАР Єднання ══
+  ID         : tg_ednannia
+  URL        : https://t.me/s/ednannia
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:24
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:24:43] start                        {"windowDays":30,"maxNew":15,"override":false,"url":"https://t.me/s/ednannia","parser":"telegram"}
+  [12:24:44] parsed                       {"sample_titles":[],"raw_count":0,"multi_blocks":0}
+  [12:24:44] selection_gates              {"non_ua_samples":[],"age_dropped":0,"age_samples":[],"non_ua_dropped":0,"max_age_days":14}
+  [12:24:44] filter                       {"filtered_samples":[],"passed":0,"raw":0,"filtered":0,"fallback_mode":false,"relaxed_mode":false}
+  [12:24:44] cache_check                  {"urls_to_check":0}
+  [12:24:44] result                       {"created":0,"is_multi":false,"dupes":0,"detailed":0}
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:24    empty         0         0      0      
+  2026-04-03 12:10    empty         0         0      0      
+  2026-04-03 11:16    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Конкурси проєктів ══
+  ID         : google_news_konkursy
+  URL        : https://news.google.com/rss/search?q=%D0%BA%D0%BE%D0%BD%D0%BA%D1%83%D1%80%D1%81+%D0%BF%D1%80%D0%BE%D1%94%D0%BA%D1%82%D1%96%D0%B2+%D0%A3%D0%BA%D1%80%D0%B0%D1%97%D0%BD%D0%B0&hl=uk&gl=UA&ceid=UA:uk
+  Тип        : rss
+  Парсер     : google_news_rss
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 2
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : filtered
+  Знайдено   : 2
+  Після фільтру: 0
+  Відсіяно >14 днів: 4
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : 200
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:25:39] start                        {"url":"https://news.google.com/rss/search?q=%D0%BA%D0%BE%D0%BD%D0%BA%D1%83%D1%80%D1%81+%D0%BF%D1%80%D0%BE%D1%94%D0%BA%D1%82%D1%96%D0%B2+%D0%A3%D0%BA%D1%80%D0%B0%D1%97%D0%BD%D0%B0&hl=uk&gl=UA&ceid=UA:uk","override":false,"maxNew":15,"windowDays":30,"parser":"google_news_rss"}
+  [12:25:39] rss_fetch                    {"ua_index":0,"http_status":200,"content_type":"application/xml; charset=utf-8","attempt":0}
+  [12:25:39] rss_fetch_done               {"response_size":139337,"http_status":200}
+  [12:25:40] rss_channel                  {"total_items":91,"channel_title":"\"конкурс проєктів Україна\" - Google Новини"}
+  [12:25:40] rss_entries_total            {"count":91}
+  [12:25:40] parsed                       {"multi_blocks":0,"raw_count":6,"sample_titles":["«Це реальний інструмент, який дозволяє втілювати навіть найа","Україна готується до Венеційської бієнале 2027: оголошено ві","Увага! Національний фонд досліджень України оголошує конкурс"]}
+  [12:25:40] selection_gates              {"age_dropped":4,"non_ua_samples":[],"non_ua_dropped":0,"age_samples":["Україна готується до Венеційської бієнале 2027: оголошено ві [Wed, 18 Mar 2026 07:]","Увага! Національний фонд досліджень України оголошує конкурс [Tue, 17 Mar 2026 18:]","Конкурс грантів для адвокаційних проєктів українських ор…
+  [12:25:40] filter                       {"filtered":2,"filtered_samples":["«Це реальний інструмент, який дозволяє втілювати навіть найа","Конкурс для оборонних проєктів: Україна та НАТО об’єднуються"],"raw":2,"passed":0,"relaxed_mode":false,"fallback_mode":false}
+  [12:25:40] cache_check                  {"urls_to_check":0}
+  [12:25:40] result                       {"detailed":0,"dupes":0,"created":0,"is_multi":false}
+
+  ── Попередження ──
+  ⚠️  all_filtered_after_selection
+  ⚠️  age_dropped: 4
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:25    filtered      2         0      0      
+  2026-04-03 11:34    empty         0         0      0      HTTP 503 from https://news.google.com/rs
+  2026-04-03 10:48    filtered      2         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Мікрогранти та бізнес ══
+  ID         : google_news_business_grants
+  URL        : https://news.google.com/rss/search?q=мікрогрант+бізнес+Україна&hl=uk&gl=UA&ceid=UA:uk
+  Тип        : rss
+  Парсер     : google_news_rss
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 20
+  Всього знайдено за весь час: 1
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : ok_dupes
+  Знайдено   : 1
+  Після фільтру: 1
+  Відсіяно >14 днів: 2
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 1
+  Деталей    : 0
+  HTTP       : 200
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:25:50] start                        {"maxNew":20,"override":false,"windowDays":30,"url":"https://news.google.com/rss/search?q=мікрогрант+бізнес+Україна&hl=uk&gl=UA&ceid=UA:uk","parser":"google_news_rss"}
+  [12:25:51] rss_fetch                    {"http_status":200,"ua_index":0,"attempt":0,"content_type":"application/xml; charset=utf-8"}
+  [12:25:51] rss_fetch_done               {"http_status":200,"response_size":58684}
+  [12:25:51] rss_channel                  {"total_items":41,"channel_title":"\"мікрогрант бізнес Україна\" - Google Новини"}
+  [12:25:51] rss_entries_total            {"count":41}
+  [12:25:51] parsed                       {"sample_titles":["На Прикарпатті ще 83 підприємці отримали мікрогрант \"Власна ","Український Червоний Хрест відкриває прийом заявок на мікрог","Ветерани та їхні родини можуть отримати до 200 тисяч гривень"],"raw_count":3,"multi_blocks":0}
+  [12:25:51] selection_gates              {"non_ua_samples":[],"age_dropped":2,"age_samples":["Український Червоний Хрест відкриває прийом заявок на мікрог [Tue, 17 Mar 2026 07:]","Ветерани та їхні родини можуть отримати до 200 тисяч гривень [Fri, 06 Mar 2026 08:]"],"non_ua_dropped":0,"max_age_days":14}
+  [12:25:51] filter                       {"relaxed_mode":false,"fallback_mode":false,"filtered":0,"filtered_samples":[],"raw":1,"passed":1}
+  [12:25:51] cache_check                  {"urls_to_check":1}
+  [12:25:51] result                       {"created":0,"is_multi":false,"dupes":1,"detailed":0}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 1
+     dup_cache: https://news.google.com/rss/articles/cbmicefvx3lxte5evm5vwek5vuf2sy01n
+  ⚠️  age_dropped: 2
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:25    ok_dupes      1         0      1      
+  2026-04-03 11:36    empty         0         0      0      HTTP 503 from https://news.google.com/rs
+  2026-04-03 10:49    ok_new        2         1      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Міністерство розвитку громад ══
+  ID         : src_1775040621159
+  URL        : https://mindev.gov.ua/diialnist/resursy-dlia-hromad
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 17
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : ok_dupes
+  Знайдено   : 82
+  Після фільтру: 1
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 18
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 1
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:25:52] start                        {"url":"https://mindev.gov.ua/diialnist/resursy-dlia-hromad","maxNew":20,"override":false,"windowDays":7,"parser":"page_links"}
+  [12:25:56] parsed                       {"multi_blocks":0,"sample_titles":["Новини","Про Міністерство","Команда"],"raw_count":100}
+  [12:25:57] multi_grant                  {"added":0,"blocks_found":0}
+  [12:25:57] selection_gates              {"max_age_days":14,"non_ua_samples":["Новини","Команда","Структура","Контакти","Напрями"],"age_dropped":0,"age_samples":[],"non_ua_dropped":18}
+  [12:25:57] filter                       {"filtered":81,"filtered_samples":["Про Міністерство","Стратегія","Відкритий бюджет Міністерства","Підвідомчі організації","Вакансії"],"passed":1,"raw":82,"relaxed_mode":false,"fallback_mode":false}
+  [12:25:57] cache_check                  {"urls_to_check":1}
+  [12:25:57] result                       {"created":0,"is_multi":false,"dupes":1,"detailed":0}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 1
+     dup_cache: mindev.gov.ua/pro-nas/proiektni-ofisy/komanda-pidtrymky-reform-rst
+  ⚠️  non_ua_dropped: 18
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:35    filtered      60        0      0      
+  2026-04-03 08:04    filtered      60        0      0      
+  2026-04-03 07:33    filtered      60        0      0      
+  2026-04-03 07:00    filtered      60        0      0      
+  2026-04-03 06:29    filtered      60        0      0      
+  2026-04-03 05:58    filtered      60        0      0      
+  2026-04-03 05:27    filtered      60        0      0      
+  2026-04-03 04:56    filtered      60        0      0      
+  2026-04-03 04:25    filtered      60        0      0      
+  2026-04-03 03:54    filtered      60        0      0      
+  2026-04-03 03:23    filtered      60        0      0      
+  2026-04-03 12:25    ok_dupes      82        0      1      
+  2026-04-03 11:37    ok_dupes      82        0      1      
+  2026-04-03 10:49    ok_dupes      82        0      1      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ МФВ — конкурси та гранти ══
+  ID         : irf_contests
+  URL        : https://www.irf.ua/grants/contests/
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 20
+  Всього знайдено за весь час: 8
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : ok_dupes
+  Знайдено   : 36
+  Після фільтру: 13
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 2
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 13
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : так
+
+  ── Кроки діагностики ──
+  [12:25:41] start                        {"url":"https://www.irf.ua/grants/contests/","override":false,"maxNew":20,"windowDays":30,"parser":"page_links"}
+  [12:25:45] parsed                       {"multi_blocks":0,"raw_count":19,"sample_titles":["Грантерам","Завершені конкурси","Аплікаційна форма"]}
+  [12:25:48] multi_grant                  {"blocks_found":26,"added":19}
+  [12:25:48] selection_gates              {"non_ua_dropped":2,"age_samples":[],"age_dropped":0,"non_ua_samples":["Грантерам","Грант: № SG54468 Запуск видання The Kyiv Independent Бюджет:"],"max_age_days":14}
+  [12:25:48] filter                       {"filtered":23,"filtered_samples":["Завершені конкурси","Аплікаційна форма","Подати пропозицію","Конкурси та гранти Міжнародний фонд \"Відродження\" оголошує к","Вимоги щодо рівня відкритості організації"],"raw":36,"passed":13,"relaxed_mode":false,"fallback_mode":false}
+  [12:25:48] cache_check                  {"urls_to_check":11}
+  [12:25:49] result                       {"is_multi":true,"created":0,"dupes":13,"detailed":0}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 13
+     dup_cache: irf.ua/contest/small-grants-norad-sida
+     dup_cache: irf.ua/contest/konkurs-zahyst-interesiv-postrazhdalyh-dokumentuvannya-
+     dup_cache: irf.ua/contest/konkurs-podolannya-bezkarnosti-za-mizhnarodni-zlochyny-
+     dup_cache: irf.ua/contest/konkurs-pidgotovka-do-vstupu-u-yes-na-rivni-gromad-2-0
+     dup_cache: irf.ua/contest/bloggers-2026
+     dup_cache: irf.ua/contest/konkurs-mosty-solidarnosti-z-ukrayinoyu
+     dup_cache: irf.ua/grants/awarded_grants/gibrydni-vyklyky-suchasnogo-svitu-ukrayin
+     dup_cache: irf.ua/grants/awarded_grants/ukrayinskyj-suddya-poklykannya-profesiya-
+     dup_cache: irf.ua/grants/awarded_grants/protydiya-porushennyam-prav-pacziyentiv-p
+     dup_cache: irf.ua/grants/awarded_grants/aprobacziya-modeli-posylennya-stijkosti-s
+     … ще 3
+  ⚠️  non_ua_dropped: 2
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:25    ok_dupes      36        0      13     
+  2026-04-03 11:35    ok_dupes      36        0      13     
+  2026-04-03 10:48    ok_new        36        8      5      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Простір ══
+  ID         : tg_prostirua
+  URL        : https://t.me/s/prostir_ua
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:25
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:25:58] start                        {"url":"https://t.me/s/prostir_ua","windowDays":7,"override":false,"maxNew":20,"parser":"telegram"}
+  [12:25:59] parsed                       {"multi_blocks":0,"sample_titles":[],"raw_count":0}
+  [12:25:59] selection_gates              {"age_samples":[],"non_ua_dropped":0,"non_ua_samples":[],"age_dropped":0,"max_age_days":14}
+  [12:25:59] filter                       {"filtered":0,"filtered_samples":[],"raw":0,"passed":0,"relaxed_mode":false,"fallback_mode":false}
+  [12:25:59] cache_check                  {"urls_to_check":0}
+  [12:25:59] result                       {"created":0,"is_multi":false,"dupes":0,"detailed":0}
+
+  ── Історія останніх 15 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:12    empty         0         0      0      
+  2026-04-03 07:41    empty         0         0      0      
+  2026-04-03 07:08    empty         0         0      0      
+  2026-04-03 06:37    empty         0         0      0      
+  2026-04-03 06:06    empty         0         0      0      
+  2026-04-03 05:35    empty         0         0      0      
+  2026-04-03 05:04    empty         0         0      0      
+  2026-04-03 04:33    empty         0         0      0      
+  2026-04-03 04:02    empty         0         0      0      
+  2026-04-03 03:31    empty         0         0      0      
+  2026-04-03 03:00    empty         0         0      0      
+  2026-04-03 12:25    empty         0         0      0      
+  2026-04-03 11:38    empty         0         0      0      
+  2026-04-03 10:49    empty         0         0      0      
+  2026-04-03 10:49    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ УКФ ══
+  ID         : tg_ukf_ua
+  URL        : https://t.me/s/ukf_ua
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:26
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:26:00] start                        {"parser":"telegram","windowDays":30,"override":false,"maxNew":15,"url":"https://t.me/s/ukf_ua"}
+  [12:26:01] parsed                       {"multi_blocks":0,"raw_count":0,"sample_titles":[]}
+  [12:26:01] selection_gates              {"max_age_days":14,"age_samples":[],"non_ua_dropped":0,"non_ua_samples":[],"age_dropped":0}
+  [12:26:01] filter                       {"filtered":0,"filtered_samples":[],"passed":0,"raw":0,"relaxed_mode":false,"fallback_mode":false}
+  [12:26:01] cache_check                  {"urls_to_check":0}
+  [12:26:01] result                       {"detailed":0,"dupes":0,"is_multi":false,"created":0}
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:26    empty         0         0      0      
+  2026-04-03 11:39    empty         0         0      0      
+  2026-04-03 10:49    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ УКФ (Укр. культурний фонд) ══
+  ID         : ucf_news
+  URL        : https://ucf.in.ua/programs
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 26
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:26
+  Статус     : ok_dupes
+  Знайдено   : 7
+  Після фільтру: 7
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 7
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : так
+
+  ── Кроки діагностики ──
+  [12:26:02] start                        {"parser":"page_links","url":"https://ucf.in.ua/en/news","windowDays":7,"override":true,"maxNew":20}
+  [12:26:03] parsed                       {"sample_titles":["03 April 2026, 11:04 УКФ розпочав добір менторів для майбутн","30 March 2026, 18:03 Як скасування Господарського кодексу вп","18 March 2026, 12:03 До 1,5 млн грн: подавайте заявки на гра"],"raw_count":3,"multi_blocks":0}
+  [12:26:03] multi_grant                  {"blocks_found":7,"added":4}
+  [12:26:03] selection_gates              {"max_age_days":14,"non_ua_dropped":0,"age_samples":[],"age_dropped":0,"non_ua_samples":[]}
+  [12:26:04] filter                       {"relaxed_mode":false,"fallback_mode":false,"filtered":0,"passed":7,"raw":7,"filtered_samples":[]}
+  [12:26:04] cache_check                  {"urls_to_check":7}
+  [12:26:05] result                       {"is_multi":true,"created":0,"dupes":7,"detailed":0}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 7
+     dup_cache: ucf.in.ua/en/news/dobir-mentoriv
+     dup_cache: ucf.in.ua/en/news/skasuvannia-hospodarskoho-kodeksu
+     dup_cache: ucf.in.ua/en/news/responsibility-to-be
+     dup_cache: ucf.in.ua/en/news/30032026
+     dup_cache: ucf.in.ua/en/news/dyversyfikatsiia-finansuvannia
+     dup_cache: ucf.in.ua/en/news/17032026
+     dup_cache: ucf.in.ua/en/news/13032026
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:13    empty         0         0      0      
+  2026-04-03 07:42    empty         0         0      0      
+  2026-04-03 07:09    empty         0         0      0      
+  2026-04-03 06:38    empty         0         0      0      
+  2026-04-03 06:07    empty         0         0      0      
+  2026-04-03 05:36    empty         0         0      0      
+  2026-04-03 05:05    empty         0         0      0      
+  2026-04-03 04:34    empty         0         0      0      
+  2026-04-03 04:03    empty         0         0      0      
+  2026-04-03 03:32    empty         0         0      0      
+  2026-04-03 03:01    empty         0         0      0      
+  2026-04-03 12:26    ok_dupes      7         0      7      
+  2026-04-03 11:40    ok_new        7         1      6      
+  2026-04-03 10:49    ok_dupes      7         0      7      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Фонд Сх. Європа ══
+  ID         : eef_grants
+  URL        : https://eef.org.ua/programs/
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 2
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:26
+  Статус     : ok_dupes
+  Знайдено   : 1
+  Після фільтру: 1
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: так
+  Нових      : 0
+  Дублів     : 1
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:26:05] start                        {"url":"https://eef.org.ua/konkursy-grantiv/","windowDays":90,"override":true,"maxNew":20,"parser":"page_links"}
+  [12:26:08] parsed                       {"raw_count":1,"sample_titles":["Грантовий портал"],"multi_blocks":0}
+  [12:26:10] multi_grant                  {"blocks_found":0,"added":0}
+  [12:26:10] selection_gates              {"max_age_days":14,"non_ua_dropped":0,"age_samples":[],"age_dropped":0,"non_ua_samples":[]}
+  [12:26:10] filter_fallback_category_pag {"sample_titles":["Грантовий портал"],"raw":1,"passed":1}
+  [12:26:10] filter                       {"fallback_mode":true,"relaxed_mode":false,"filtered_samples":["Грантовий портал"],"raw":1,"passed":1,"filtered":1}
+  [12:26:10] cache_check                  {"urls_to_check":1}
+  [12:26:11] result                       {"created":0,"is_multi":false,"dupes":1,"detailed":0}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 1
+     dup_cache: gm.eef.org.ua
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:17    empty         0         0      0      
+  2026-04-03 07:46    empty         0         0      0      
+  2026-04-03 07:13    empty         0         0      0      
+  2026-04-03 06:42    empty         0         0      0      
+  2026-04-03 06:11    empty         0         0      0      
+  2026-04-03 05:40    empty         0         0      0      
+  2026-04-03 05:09    empty         0         0      0      
+  2026-04-03 04:38    empty         0         0      0      
+  2026-04-03 04:07    empty         0         0      0      
+  2026-04-03 03:36    empty         0         0      0      
+  2026-04-03 03:05    empty         0         0      0      
+  2026-04-03 12:26    ok_dupes      1         0      1      
+  2026-04-03 11:41    ok_dupes      1         0      1      
+  2026-04-03 10:49    ok_new        1         1      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Фонд Сх. Європа ══
+  ID         : tg_eef_ukraine
+  URL        : https://t.me/s/eef_ukraine
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:26
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:26:12] start                        {"parser":"telegram","url":"https://t.me/s/eef_ukraine","maxNew":15,"override":false,"windowDays":30}
+  [12:26:12] parsed                       {"multi_blocks":0,"raw_count":0,"sample_titles":[]}
+  [12:26:12] selection_gates              {"age_dropped":0,"non_ua_samples":[],"non_ua_dropped":0,"age_samples":[],"max_age_days":14}
+  [12:26:12] filter                       {"filtered_samples":[],"raw":0,"passed":0,"filtered":0,"fallback_mode":false,"relaxed_mode":false}
+  [12:26:12] cache_check                  {"urls_to_check":0}
+  [12:26:13] result                       {"is_multi":false,"created":0,"dupes":0,"detailed":0}
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:26    empty         0         0      0      
+  2026-04-03 11:42    empty         0         0      0      
+  2026-04-03 10:49    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Фонд Сх. Європа — конкурси ══
+  ID         : eef_competitions
+  URL        : https://eef.org.ua/konkursy-grantiv/
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 20
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:26
+  Статус     : ok_dupes
+  Знайдено   : 1
+  Після фільтру: 1
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: так
+  Нових      : 0
+  Дублів     : 1
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:26:13] start                        {"url":"https://eef.org.ua/konkursy-grantiv/","override":false,"maxNew":20,"windowDays":30,"parser":"page_links"}
+  [12:26:15] parsed                       {"multi_blocks":0,"sample_titles":["Грантовий портал"],"raw_count":1}
+  [12:26:17] multi_grant                  {"added":0,"blocks_found":0}
+  [12:26:17] selection_gates              {"max_age_days":14,"non_ua_samples":[],"age_dropped":0,"age_samples":[],"non_ua_dropped":0}
+  [12:26:17] filter_fallback_category_pag {"passed":1,"raw":1,"sample_titles":["Грантовий портал"]}
+  [12:26:17] filter                       {"filtered":1,"passed":1,"raw":1,"filtered_samples":["Грантовий портал"],"relaxed_mode":false,"fallback_mode":true}
+  [12:26:17] cache_check                  {"urls_to_check":1}
+  [12:26:18] result                       {"detailed":0,"dupes":1,"is_multi":false,"created":0}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 1
+     dup_cache: gm.eef.org.ua
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:26    ok_dupes      1         0      1      
+  2026-04-03 11:43    ok_dupes      1         0      1      
+  2026-04-03 10:49    ok_dupes      1         0      1      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ British Council Україна ══
+  ID         : british_council_ua
+  URL        : https://www.britishcouncil.org.ua/programmes
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : medium
+  Вікно (дн) : 30
+  Ліміт      : 20
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : —
+  Статус     : —
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ British Council UA ══
+  ID         : britishcouncil_ua
+  URL        : https://www.britishcouncil.org.ua/grants-and-funding
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 11:45
+  Статус     : —
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Історія останніх 13 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:36    empty         0         0      0      
+  2026-04-03 08:05    empty         0         0      0      
+  2026-04-03 07:34    empty         0         0      0      
+  2026-04-03 07:01    empty         0         0      0      
+  2026-04-03 06:30    empty         0         0      0      
+  2026-04-03 05:59    empty         0         0      0      
+  2026-04-03 05:28    empty         0         0      0      
+  2026-04-03 04:57    empty         0         0      0      
+  2026-04-03 04:26    empty         0         0      0      
+  2026-04-03 03:55    empty         0         0      0      
+  2026-04-03 03:24    empty         0         0      0      
+  2026-04-03 11:45    empty         0         0      0      The user aborted a request.
+  2026-04-03 10:51    empty         0         0      0      The user aborted a request.
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ docs.google.com ══
+  ID         : src_1775119984371
+  URL        : https://docs.google.com
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : medium
+  Вікно (дн) : 7
+  Ліміт      : 10
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:24
+  Статус     : filtered
+  Знайдено   : 2
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 1
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:24:23] start                        {"url":"https://docs.google.com","maxNew":10,"override":false,"windowDays":7,"parser":"page_links"}
+  [12:24:27] parsed                       {"sample_titles":["Довідка","Конфіденційність","Докладніше про режим гостя"],"raw_count":3,"multi_blocks":0}
+  [12:24:31] multi_grant                  {"blocks_found":0,"added":0}
+  [12:24:31] selection_gates              {"non_ua_dropped":1,"age_samples":[],"age_dropped":0,"non_ua_samples":["Довідка"],"max_age_days":14}
+  [12:24:31] filter                       {"filtered":2,"raw":2,"passed":0,"filtered_samples":["Конфіденційність","Докладніше про режим гостя"],"relaxed_mode":false,"fallback_mode":false}
+  [12:24:32] cache_check                  {"urls_to_check":0}
+  [12:24:32] result                       {"dupes":0,"created":0,"is_multi":false,"detailed":0}
+
+  ── Попередження ──
+  ⚠️  all_filtered_after_selection
+  ⚠️  non_ua_dropped: 1
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:24    filtered      2         0      0      
+  2026-04-03 12:12    filtered      2         0      0      
+  2026-04-03 11:18    filtered      2         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ FundsforNGOs ══
+  ID         : fundsforngos_ukraine
+  URL        : https://www2.fundsforngos.org/tag/ukraine/feed/
+  Тип        : rss
+  Парсер     : rss
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 1
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:22
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : 200
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:22:50] start                        {"url":"https://www2.fundsforngos.org/tag/ukraine/feed/","windowDays":90,"override":false,"maxNew":20,"parser":"rss"}
+  [12:22:51] rss_fetch                    {"content_type":"application/rss+xml; charset=UTF-8","attempt":0,"ua_index":0,"http_status":200}
+  [12:22:51] rss_fetch_done               {"response_size":26094,"http_status":200}
+  [12:22:51] rss_channel                  {"total_items":1,"channel_title":"Latest Grants and Resources in Ukraine - fundsforNGOs"}
+  [12:22:51] rss_entries_total            {"count":1}
+  [12:22:51] rss_all_outside_window       {"sample_dates":["Thu, 13 Nov 2025 06:48:20 +0000"],"window_days":90}
+  [12:22:51] parsed                       {"multi_blocks":0,"sample_titles":[],"raw_count":0}
+  [12:22:51] rss_retry_all_empty          {"note":"Фід порожній навіть за 90 днів"}
+  [12:22:51] selection_gates              {"non_ua_samples":[],"age_dropped":0,"age_samples":[],"non_ua_dropped":0,"max_age_days":14}
+  [12:22:51] filter                       {"filtered":0,"filtered_samples":[],"passed":0,"raw":0,"relaxed_mode":false,"fallback_mode":false}
+  [12:22:51] cache_check                  {"urls_to_check":0}
+  [12:22:51] result                       {"detailed":0,"dupes":0,"is_multi":false,"created":0}
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:26    empty         0         0      0      
+  2026-04-03 07:55    empty         0         0      0      
+  2026-04-03 07:22    empty         0         0      0      
+  2026-04-03 06:51    empty         0         0      0      
+  2026-04-03 06:20    empty         0         0      0      
+  2026-04-03 05:49    empty         0         0      0      
+  2026-04-03 05:18    empty         0         0      0      
+  2026-04-03 04:47    empty         0         0      0      
+  2026-04-03 04:16    empty         0         0      0      
+  2026-04-03 03:45    empty         0         0      0      
+  2026-04-03 03:14    empty         0         0      0      
+  2026-04-03 12:22    empty         0         0      0      
+  2026-04-03 11:46    empty         0         0      0      
+  2026-04-03 10:52    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ GetGrant ══
+  ID         : getgrant_page
+  URL        : https://getgrant.com.ua/grants/
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 3
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:23
+  Статус     : ok_dupes
+  Знайдено   : 12
+  Після фільтру: 3
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 6
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 3
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : так
+
+  ── Кроки діагностики ──
+  [12:23:00] start                        {"parser":"page_links","maxNew":20,"override":true,"windowDays":7,"url":"https://getgrant.ua/"}
+  [12:23:04] parsed                       {"raw_count":14,"sample_titles":["Послуги","Ціни","Матеріали і курси"],"multi_blocks":0}
+  [12:23:05] multi_grant                  {"blocks_found":5,"added":4}
+  [12:23:05] selection_gates              {"age_samples":[],"non_ua_dropped":6,"non_ua_samples":["Послуги","Ціни","Блог","Умови використання","Угода користувача"],"age_dropped":0,"max_age_days":14}
+  [12:23:05] filter                       {"relaxed_mode":false,"fallback_mode":false,"filtered":9,"filtered_samples":["Матеріали і курси","Гранти та фінансування","Логін","Реєстрація","Знайти грант для себе"],"passed":3,"raw":12}
+  [12:23:05] cache_check                  {"urls_to_check":2}
+  [12:23:07] result                       {"dupes":3,"created":0,"is_multi":true,"detailed":0}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 3
+     dup_cache: getgrant.ua/hranty-dlia-universytetiv-ta-doslidnykiv-2026
+     dup_cache: getgrant.ua
+     dup_cache: getgrant.ua
+  ⚠️  non_ua_dropped: 6
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:32    empty         0         0      0      
+  2026-04-03 08:01    empty         0         0      0      
+  2026-04-03 07:28    empty         0         0      0      
+  2026-04-03 06:57    empty         0         0      0      
+  2026-04-03 06:26    empty         0         0      0      
+  2026-04-03 05:55    empty         0         0      0      
+  2026-04-03 05:24    empty         0         0      0      
+  2026-04-03 04:53    empty         0         0      0      
+  2026-04-03 04:22    empty         0         0      0      
+  2026-04-03 03:51    empty         0         0      0      
+  2026-04-03 03:20    empty         0         0      0      
+  2026-04-03 12:23    ok_dupes      12        0      3      
+  2026-04-03 11:49    ok_dupes      12        0      3      
+  2026-04-03 10:55    ok_dupes      12        0      3      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ GetGrant.ua ══
+  ID         : getgrant_ua
+  URL        : https://getgrant.ua/
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 20
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:23
+  Статус     : ok_dupes
+  Знайдено   : 12
+  Після фільтру: 3
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 5
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 3
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : так
+
+  ── Кроки діагностики ──
+  [12:23:08] start                        {"url":"https://getgrant.ua/","windowDays":30,"override":false,"maxNew":20,"parser":"page_links"}
+  [12:23:10] parsed                       {"multi_blocks":0,"sample_titles":["Послуги","Ціни","Матеріали і курси"],"raw_count":13}
+  [12:23:12] multi_grant                  {"added":4,"blocks_found":5}
+  [12:23:12] selection_gates              {"max_age_days":14,"age_samples":[],"non_ua_dropped":5,"non_ua_samples":["Послуги","Ціни","Блог","Угода користувача","GetGrant отримав Golden Status від Seeds of Bravery"],"age_dropped":0}
+  [12:23:12] filter                       {"relaxed_mode":false,"fallback_mode":false,"filtered":9,"raw":12,"passed":3,"filtered_samples":["Матеріали і курси","Гранти та фінансування","Логін","Реєстрація","Знайти грант для себе"]}
+  [12:23:12] cache_check                  {"urls_to_check":2}
+  [12:23:13] result                       {"created":0,"is_multi":true,"dupes":3,"detailed":0}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 3
+     dup_cache: getgrant.ua/hranty-dlia-universytetiv-ta-doslidnykiv-2026
+     dup_cache: getgrant.ua
+     dup_cache: getgrant.ua
+  ⚠️  non_ua_dropped: 5
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:23    ok_dupes      12        0      3      
+  2026-04-03 11:50    ok_dupes      12        0      3      
+  2026-04-03 10:56    ok_dupes      12        0      3      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ GIZ Ukraine ══
+  ID         : giz_ukraine_page
+  URL        : https://www.giz.de/en/worldwide/320.html
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 2
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:22
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 2
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:22:52] start                        {"parser":"page_links","override":true,"maxNew":15,"windowDays":30,"url":"https://www.giz.de/en/worldwide/ukraineoffering.html"}
+  [12:22:55] parsed                       {"raw_count":2,"sample_titles":["Partner with us","Receive funding"],"multi_blocks":0}
+  [12:22:56] multi_grant                  {"blocks_found":0,"added":0}
+  [12:22:56] selection_gates              {"non_ua_samples":["Partner with us","Receive funding"],"age_dropped":0,"age_samples":[],"non_ua_dropped":2,"max_age_days":14}
+  [12:22:56] filter                       {"filtered_samples":[],"passed":0,"raw":0,"filtered":0,"fallback_mode":false,"relaxed_mode":false}
+  [12:22:56] cache_check                  {"urls_to_check":0}
+  [12:22:56] result                       {"detailed":0,"created":0,"is_multi":false,"dupes":0}
+
+  ── Попередження ──
+  ⚠️  non_ua_dropped: 2
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:27    filtered      1         0      0      
+  2026-04-03 07:56    filtered      1         0      0      
+  2026-04-03 07:23    filtered      1         0      0      
+  2026-04-03 06:52    filtered      1         0      0      
+  2026-04-03 06:21    filtered      1         0      0      
+  2026-04-03 05:50    filtered      1         0      0      
+  2026-04-03 05:19    filtered      1         0      0      
+  2026-04-03 04:48    filtered      1         0      0      
+  2026-04-03 04:17    filtered      1         0      0      
+  2026-04-03 03:46    filtered      1         0      0      
+  2026-04-03 03:15    filtered      1         0      0      
+  2026-04-03 12:22    empty         0         0      0      
+  2026-04-03 11:47    empty         0         0      0      
+  2026-04-03 10:53    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ GIZ Ukraine ══
+  ID         : tg_giz_ukraine
+  URL        : https://t.me/s/giz_ukraine
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:22
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:22:58] start                        {"url":"https://t.me/s/giz_ukraine","maxNew":15,"override":false,"windowDays":30,"parser":"telegram"}
+  [12:22:59] parsed                       {"multi_blocks":0,"sample_titles":[],"raw_count":0}
+  [12:22:59] selection_gates              {"max_age_days":14,"non_ua_dropped":0,"age_samples":[],"age_dropped":0,"non_ua_samples":[]}
+  [12:22:59] filter                       {"filtered_samples":[],"passed":0,"raw":0,"filtered":0,"fallback_mode":false,"relaxed_mode":false}
+  [12:22:59] cache_check                  {"urls_to_check":0}
+  [12:22:59] result                       {"is_multi":false,"created":0,"dupes":0,"detailed":0}
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:18    empty         0         0      0      
+  2026-04-03 07:47    empty         0         0      0      
+  2026-04-03 07:14    empty         0         0      0      
+  2026-04-03 06:43    empty         0         0      0      
+  2026-04-03 06:12    empty         0         0      0      
+  2026-04-03 05:41    empty         0         0      0      
+  2026-04-03 05:10    empty         0         0      0      
+  2026-04-03 04:39    empty         0         0      0      
+  2026-04-03 04:08    empty         0         0      0      
+  2026-04-03 03:37    empty         0         0      0      
+  2026-04-03 03:06    empty         0         0      0      
+  2026-04-03 12:22    empty         0         0      0      
+  2026-04-03 11:48    empty         0         0      0      
+  2026-04-03 10:54    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Grant Management ══
+  ID         : tg_grantmanagement
+  URL        : https://t.me/s/grantmanagement
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 20
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:23
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:23:15] start                        {"override":false,"maxNew":20,"windowDays":30,"url":"https://t.me/s/grantmanagement","parser":"telegram"}
+  [12:23:16] parsed                       {"sample_titles":[],"raw_count":0,"multi_blocks":0}
+  [12:23:16] selection_gates              {"age_dropped":0,"non_ua_samples":[],"non_ua_dropped":0,"age_samples":[],"max_age_days":14}
+  [12:23:16] filter                       {"filtered_samples":[],"passed":0,"raw":0,"filtered":0,"fallback_mode":false,"relaxed_mode":false}
+  [12:23:16] cache_check                  {"urls_to_check":0}
+  [12:23:16] result                       {"detailed":0,"is_multi":false,"created":0,"dupes":0}
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:23    empty         0         0      0      
+  2026-04-03 11:51    empty         0         0      0      
+  2026-04-03 10:57    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ grant.market ══
+  ID         : src_1775047946155
+  URL        : https://grant.market/opp
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 16
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:24
+  Статус     : ok_dupes
+  Знайдено   : 30
+  Після фільтру: 15
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 1
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 15
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : так
+
+  ── Кроки діагностики ──
+  [12:24:33] start                        {"parser":"page_links","url":"https://grant.market/opp","windowDays":7,"maxNew":20,"override":false}
+  [12:24:36] parsed                       {"sample_titles":["Опублікувати грант","Підписка","Нові за тиждень 13"],"raw_count":31,"multi_blocks":0}
+  [12:24:38] multi_grant                  {"added":0,"blocks_found":11}
+  [12:24:38] selection_gates              {"age_samples":[],"non_ua_dropped":1,"non_ua_samples":["[email protected]"],"age_dropped":0,"max_age_days":14}
+  [12:24:38] filter                       {"filtered":15,"filtered_samples":["Опублікувати грант","Підписка","# 1296 Грант до €1,5 млн на проєкт із масштабування агро-біо","# 1294 Безкоштовна участь у міжнародному акселераторі для ст","# 1293 Грант до €10 000 на розвиток агроідеї для підприємиць"],"passed":15,"raw":30,"relaxed_mode":false,"…
+  [12:24:38] cache_check                  {"urls_to_check":15}
+  [12:24:40] result                       {"detailed":0,"created":0,"is_multi":true,"dupes":15}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 15
+     dup_cache: grant.market/opp
+     dup_cache: grant.market/opp/people-in-need-dovira26
+     dup_cache: grant.market/opp/cye-2026
+     dup_cache: grant.market/opp/gap-in-between-startup26
+     dup_cache: grant.market/opp/visa-everywhere-pioneers26
+     dup_cache: grant.market/opp/agro-consult-mercy-corps
+     dup_cache: grant.market/opp/hei-train26
+     dup_cache: grant.market/opp/nmk-women-av-tech
+     dup_cache: grant.market/opp/mit-solve-fii
+     dup_cache: grant.market/opp/agri-biomass-sme
+     … ще 5
+  ⚠️  non_ua_dropped: 1
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:37    ok_new        26        1      9      
+  2026-04-03 08:06    ok_dupes      26        0      9      
+  2026-04-03 07:35    ok_dupes      26        0      9      
+  2026-04-03 07:02    ok_dupes      26        0      9      
+  2026-04-03 06:31    ok_dupes      26        0      9      
+  2026-04-03 06:00    ok_dupes      26        0      9      
+  2026-04-03 05:29    ok_dupes      26        0      9      
+  2026-04-03 04:58    ok_dupes      26        0      9      
+  2026-04-03 04:27    ok_dupes      26        0      9      
+  2026-04-03 03:56    ok_dupes      26        0      9      
+  2026-04-03 03:25    ok_dupes      26        0      9      
+  2026-04-03 12:24    ok_dupes      30        0      15     
+  2026-04-03 12:08    ok_dupes      30        0      15     
+  2026-04-03 11:14    ok_dupes      30        0      14     
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Grant.Market ══
+  ID         : grant_market
+  URL        : https://grant.market/grants
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 1
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:23
+  Статус     : ok_dupes
+  Знайдено   : 29
+  Після фільтру: 15
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 1
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 15
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : так
+
+  ── Кроки діагностики ──
+  [12:23:21] start                        {"url":"https://grant.market/opp","windowDays":7,"override":true,"maxNew":20,"parser":"page_links"}
+  [12:23:26] parsed                       {"multi_blocks":0,"sample_titles":["Опублікувати грант","Підписка","Нові за тиждень 13"],"raw_count":30}
+  [12:23:29] multi_grant                  {"blocks_found":11,"added":0}
+  [12:23:29] selection_gates              {"max_age_days":14,"age_dropped":0,"non_ua_samples":["[email protected]"],"non_ua_dropped":1,"age_samples":[]}
+  [12:23:29] filter                       {"raw":29,"passed":15,"filtered_samples":["Опублікувати грант","Підписка","# 1296 Грант до €1,5 млн на проєкт із масштабування агро-біо","# 1294 Безкоштовна участь у міжнародному акселераторі для ст","# 1293 Грант до €10 000 на розвиток агроідеї для підприємиць"],"filtered":14,"fallback_mode":false,…
+  [12:23:29] cache_check                  {"urls_to_check":15}
+  [12:23:35] result                       {"detailed":0,"is_multi":true,"created":0,"dupes":15}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 15
+     dup_cache: grant.market/opp
+     dup_cache: grant.market/opp/people-in-need-dovira26
+     dup_cache: grant.market/opp/cye-2026
+     dup_cache: grant.market/opp/gap-in-between-startup26
+     dup_cache: grant.market/opp/visa-everywhere-pioneers26
+     dup_cache: grant.market/opp/agro-consult-mercy-corps
+     dup_cache: grant.market/opp/hei-train26
+     dup_cache: grant.market/opp/nmk-women-av-tech
+     dup_cache: grant.market/opp/mit-solve-fii
+     dup_cache: grant.market/opp/agri-biomass-sme
+     … ще 5
+  ⚠️  non_ua_dropped: 1
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:19    empty         0         0      0      
+  2026-04-03 07:48    empty         0         0      0      
+  2026-04-03 07:15    empty         0         0      0      
+  2026-04-03 06:44    empty         0         0      0      
+  2026-04-03 06:13    empty         0         0      0      
+  2026-04-03 05:42    empty         0         0      0      
+  2026-04-03 05:11    empty         0         0      0      
+  2026-04-03 04:40    empty         0         0      0      
+  2026-04-03 04:09    empty         0         0      0      
+  2026-04-03 03:38    empty         0         0      0      
+  2026-04-03 03:07    empty         0         0      0      
+  2026-04-03 12:23    ok_dupes      29        0      15     
+  2026-04-03 11:52    ok_new        29        1      14     
+  2026-04-03 10:58    ok_dupes      29        0      14     
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Grant.Market ══
+  ID         : tg_grant_market
+  URL        : https://t.me/s/grant_market
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:23
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:23:36] start                        {"parser":"telegram","url":"https://t.me/s/grant_market","maxNew":20,"override":false,"windowDays":7}
+  [12:23:37] parsed                       {"sample_titles":[],"raw_count":0,"multi_blocks":0}
+  [12:23:37] selection_gates              {"max_age_days":14,"age_samples":[],"non_ua_dropped":0,"non_ua_samples":[],"age_dropped":0}
+  [12:23:37] filter                       {"fallback_mode":false,"relaxed_mode":false,"raw":0,"passed":0,"filtered_samples":[],"filtered":0}
+  [12:23:37] cache_check                  {"urls_to_check":0}
+  [12:23:37] result                       {"detailed":0,"is_multi":false,"created":0,"dupes":0}
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:38    empty         0         0      0      
+  2026-04-03 08:07    empty         0         0      0      
+  2026-04-03 07:36    empty         0         0      0      
+  2026-04-03 07:03    empty         0         0      0      
+  2026-04-03 06:32    empty         0         0      0      
+  2026-04-03 06:01    empty         0         0      0      
+  2026-04-03 05:30    empty         0         0      0      
+  2026-04-03 04:59    empty         0         0      0      
+  2026-04-03 04:28    empty         0         0      0      
+  2026-04-03 03:57    empty         0         0      0      
+  2026-04-03 03:26    empty         0         0      0      
+  2026-04-03 12:23    empty         0         0      0      
+  2026-04-03 11:53    empty         0         0      0      
+  2026-04-03 10:59    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ GrantUP ══
+  ID         : src_1774807077526
+  URL        : https://t.me/GrantUP
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 1
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:23
+  Статус     : ok_new
+  Знайдено   : 9
+  Після фільтру: 7
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 1
+  Дублів     : 6
+  Деталей    : 1
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:23:38] start                        {"parser":"telegram","maxNew":20,"override":false,"windowDays":7,"url":"https://t.me/GrantUP"}
+  [12:23:40] parsed                       {"multi_blocks":0,"raw_count":9,"sample_titles":["ZMINA:Resilience. Підтримка проєктів міжнародної співпраці","⚡️ Взаємодія освіти й бізнесу відкриває нові перспективи для","Mental Health Evening for Media"]}
+  [12:23:40] selection_gates              {"max_age_days":14,"non_ua_samples":[],"age_dropped":0,"age_samples":[],"non_ua_dropped":0}
+  [12:23:40] filter                       {"filtered_samples":["⚡️ Взаємодія освіти й бізнесу відкриває нові перспективи для","🇪🇸🤝🇺🇦Міністерство культури України спільно з Міністерст"],"passed":7,"raw":9,"filtered":2,"fallback_mode":false,"relaxed_mode":false}
+  [12:23:40] cache_check                  {"urls_to_check":7}
+  [12:23:43] result                       {"dupes":6,"is_multi":false,"created":1,"detailed":1}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 6
+     dup_cache: izolyatsia.org/ua/project/zmina-resilience/zrs-cocreation-open-call
+     dup_cache: docs.google.com/forms/d/e/1faipqlsdbdqxhp1yuzwxaijm9mlj_uqe7lbzysydnbl
+     dup_cache: mincult.gov.ua/news/blyzko-100-mln-grn-na-ukrayinsku-kulturu-ta-novi-p
+     dup_cache: culture-of-solidarity-fund.grantplatform.com
+     dup_cache: u24.gov.ua/uk/sky-defense
+     dup_cache: investigativejournalismforeu.net/grants/freelancer-support-scheme
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:34    empty         0         0      0      
+  2026-04-03 08:03    empty         0         0      0      
+  2026-04-03 07:30    empty         0         0      0      
+  2026-04-03 06:59    empty         0         0      0      
+  2026-04-03 06:28    empty         0         0      0      
+  2026-04-03 05:57    empty         0         0      0      
+  2026-04-03 05:26    empty         0         0      0      
+  2026-04-03 04:55    empty         0         0      0      
+  2026-04-03 04:24    empty         0         0      0      
+  2026-04-03 03:53    empty         0         0      0      
+  2026-04-03 03:22    empty         0         0      0      
+  2026-04-03 12:23    ok_new        9         1      6      
+  2026-04-03 11:54    ok_dupes      8         0      6      
+  2026-04-03 11:00    ok_dupes      8         0      6      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ GrantUP ══
+  ID         : tg_grantup
+  URL        : https://t.me/s/grantup
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 7
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:23
+  Статус     : ok_dupes
+  Знайдено   : 9
+  Після фільтру: 7
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 7
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:23:44] start                        {"parser":"telegram","maxNew":15,"override":false,"windowDays":30,"url":"https://t.me/s/grantup"}
+  [12:23:46] parsed                       {"sample_titles":["ZMINA:Resilience. Підтримка проєктів міжнародної співпраці","⚡️ Взаємодія освіти й бізнесу відкриває нові перспективи для","Mental Health Evening for Media"],"raw_count":9,"multi_blocks":0}
+  [12:23:46] selection_gates              {"non_ua_dropped":0,"age_samples":[],"age_dropped":0,"non_ua_samples":[],"max_age_days":14}
+  [12:23:46] filter                       {"relaxed_mode":false,"fallback_mode":false,"filtered":2,"passed":7,"raw":9,"filtered_samples":["⚡️ Взаємодія освіти й бізнесу відкриває нові перспективи для","🇪🇸🤝🇺🇦Міністерство культури України спільно з Міністерст"]}
+  [12:23:46] cache_check                  {"urls_to_check":7}
+  [12:23:49] result                       {"detailed":0,"dupes":7,"is_multi":false,"created":0}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 7
+     dup_cache: izolyatsia.org/ua/project/zmina-resilience/zrs-cocreation-open-call
+     dup_cache: docs.google.com/forms/d/e/1faipqlsdbdqxhp1yuzwxaijm9mlj_uqe7lbzysydnbl
+     dup_cache: mincult.gov.ua/news/blyzko-100-mln-grn-na-ukrayinsku-kulturu-ta-novi-p
+     dup_cache: culture-of-solidarity-fund.grantplatform.com
+     dup_cache: u24.gov.ua/uk/sky-defense
+     dup_cache: investigativejournalismforeu.net/grants/freelancer-support-scheme
+     dup_cache: culture.ec.europa.eu/culture-moves-europe/call-for-individual-mobility
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:23    ok_dupes      9         0      7      
+  2026-04-03 11:55    ok_dupes      8         0      6      
+  2026-04-03 11:01    ok_dupes      8         0      6      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Granty.org.ua ══
+  ID         : granty_org_ua
+  URL        : https://granty.org.ua/granty#programy
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 41
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:23
+  Статус     : ok_dupes
+  Знайдено   : 20
+  Після фільтру: 14
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 3
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 14
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : так
+
+  ── Кроки діагностики ──
+  [12:23:49] start                        {"parser":"page_links","url":"https://granty.org.ua/granty#programy","override":false,"maxNew":20,"windowDays":7}
+  [12:23:51] parsed                       {"multi_blocks":0,"sample_titles":["Про нас","Контакти","Отримай грант"],"raw_count":9}
+  [12:23:51] multi_grant                  {"added":14,"blocks_found":14}
+  [12:23:51] selection_gates              {"non_ua_dropped":3,"age_samples":[],"age_dropped":0,"non_ua_samples":["Про нас","Контакти","Гранти"],"max_age_days":14}
+  [12:23:51] filter                       {"relaxed_mode":false,"fallback_mode":false,"filtered":6,"raw":20,"passed":14,"filtered_samples":["Отримай грант","Управління проєктами","Тренінги","Новини","Грантові конкурси"]}
+  [12:23:51] cache_check                  {"urls_to_check":1}
+  [12:23:53] result                       {"dupes":14,"is_multi":true,"created":0,"detailed":0}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 14
+     dup_cache: granty.org.ua/granty
+     dup_cache: granty.org.ua/granty
+     dup_cache: granty.org.ua/granty
+     dup_cache: granty.org.ua/granty
+     dup_cache: granty.org.ua/granty
+     dup_cache: granty.org.ua/granty
+     dup_cache: granty.org.ua/granty
+     dup_cache: granty.org.ua/granty
+     dup_cache: granty.org.ua/granty
+     dup_cache: granty.org.ua/granty
+     … ще 4
+  ⚠️  non_ua_dropped: 3
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:24    ok_dupes      45        0      12     
+  2026-04-03 07:53    ok_dupes      45        0      12     
+  2026-04-03 07:20    ok_dupes      45        0      12     
+  2026-04-03 06:49    ok_dupes      45        0      12     
+  2026-04-03 06:18    ok_dupes      45        0      12     
+  2026-04-03 05:47    ok_dupes      45        0      12     
+  2026-04-03 05:16    ok_dupes      45        0      12     
+  2026-04-03 04:45    ok_dupes      45        0      12     
+  2026-04-03 04:14    ok_dupes      45        0      12     
+  2026-04-03 03:43    ok_dupes      45        0      12     
+  2026-04-03 03:12    ok_dupes      45        0      12     
+  2026-04-03 12:23    ok_dupes      20        0      14     
+  2026-04-03 11:56    ok_dupes      20        0      14     
+  2026-04-03 11:02    ok_dupes      20        0      14     
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ House of Europe ══
+  ID         : house_of_europe
+  URL        : https://houseofeurope.org.ua/opportunities
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 18
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:23
+  Статус     : ok_dupes
+  Знайдено   : 11
+  Після фільтру: 6
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 1
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 6
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : так
+
+  ── Кроки діагностики ──
+  [12:23:54] start                        {"maxNew":20,"override":false,"windowDays":7,"url":"https://houseofeurope.org.ua/opportunities","parser":"page_links"}
+  [12:23:56] parsed                       {"sample_titles":["На персональні проєкти","Інфраструктурні","На переклад"],"raw_count":6,"multi_blocks":0}
+  [12:23:56] multi_grant                  {"blocks_found":6,"added":6}
+  [12:23:56] selection_gates              {"max_age_days":14,"non_ua_samples":["На переклад"],"age_dropped":0,"age_samples":[],"non_ua_dropped":1}
+  [12:23:56] filter                       {"fallback_mode":false,"relaxed_mode":false,"filtered_samples":["На персональні проєкти","Інфраструктурні","Міжнародної мобільності","Міжнародної співпраці","На локальні події"],"passed":6,"raw":11,"filtered":5}
+  [12:23:56] cache_check                  {"urls_to_check":6}
+  [12:23:57] result                       {"dupes":6,"created":0,"is_multi":true,"detailed":0}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 6
+     dup_cache: houseofeurope.org.ua/opportunity/923
+     dup_cache: houseofeurope.org.ua/opportunity/926
+     dup_cache: houseofeurope.org.ua/opportunity/922
+     dup_cache: houseofeurope.org.ua/opportunity/929
+     dup_cache: houseofeurope.org.ua/opportunity/930
+     dup_cache: houseofeurope.org.ua/opportunity/927
+  ⚠️  non_ua_dropped: 1
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:29    ok_dupes      12        0      6      
+  2026-04-03 07:58    ok_dupes      12        0      6      
+  2026-04-03 07:25    ok_dupes      12        0      6      
+  2026-04-03 06:54    ok_dupes      12        0      6      
+  2026-04-03 06:23    ok_dupes      12        0      6      
+  2026-04-03 05:52    ok_dupes      12        0      6      
+  2026-04-03 05:21    ok_dupes      12        0      6      
+  2026-04-03 04:50    ok_dupes      12        0      6      
+  2026-04-03 04:19    ok_dupes      12        0      6      
+  2026-04-03 03:48    ok_dupes      12        0      6      
+  2026-04-03 03:17    ok_dupes      12        0      6      
+  2026-04-03 12:23    ok_dupes      11        0      6      
+  2026-04-03 11:57    ok_dupes      11        0      6      
+  2026-04-03 11:03    ok_dupes      11        0      6      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ House of Europe ══
+  ID         : tg_houseofeurope
+  URL        : https://t.me/s/HouseofEuropeUA
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:23
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:23:58] start                        {"parser":"telegram","url":"https://t.me/s/HouseofEuropeUA","windowDays":30,"maxNew":15,"override":false}
+  [12:23:59] parsed                       {"multi_blocks":0,"raw_count":0,"sample_titles":[]}
+  [12:23:59] selection_gates              {"max_age_days":14,"age_dropped":0,"non_ua_samples":[],"non_ua_dropped":0,"age_samples":[]}
+  [12:23:59] filter                       {"fallback_mode":false,"relaxed_mode":false,"filtered_samples":[],"passed":0,"raw":0,"filtered":0}
+  [12:23:59] cache_check                  {"urls_to_check":0}
+  [12:23:59] result                       {"created":0,"is_multi":false,"dupes":0,"detailed":0}
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:23    empty         0         0      0      
+  2026-04-03 11:58    empty         0         0      0      
+  2026-04-03 11:04    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ IREX Ukraine ══
+  ID         : irex_ukraine
+  URL        : https://www.irex.org/ukraine
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:24
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:24:00] start                        {"parser":"page_links","windowDays":30,"override":false,"maxNew":15,"url":"https://www.irex.org/ukraine"}
+  [12:24:01] parsed                       {"sample_titles":[],"raw_count":0,"multi_blocks":0}
+  [12:24:01] multi_grant                  {"added":0,"blocks_found":0}
+  [12:24:01] selection_gates              {"max_age_days":14,"non_ua_dropped":0,"age_samples":[],"age_dropped":0,"non_ua_samples":[]}
+  [12:24:01] filter                       {"fallback_mode":false,"relaxed_mode":false,"filtered_samples":[],"passed":0,"raw":0,"filtered":0}
+  [12:24:01] cache_check                  {"urls_to_check":0}
+  [12:24:01] result                       {"detailed":0,"is_multi":false,"created":0,"dupes":0}
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:24    empty         0         0      0      
+  2026-04-03 11:59    empty         0         0      0      
+  2026-04-03 11:05    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Open Society (МФВ) ══
+  ID         : opensociety_ua
+  URL        : https://www.irf.ua/grants/
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 3
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:24
+  Статус     : ok_dupes
+  Знайдено   : 4
+  Після фільтру: 3
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 1
+  Fallback фільтр: так
+  Нових      : 0
+  Дублів     : 3
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:24:03] start                        {"url":"https://www.irf.ua/grants/","override":false,"maxNew":15,"windowDays":30,"parser":"page_links"}
+  [12:24:05] parsed                       {"sample_titles":["Грантерам","Конкурси та гранти","Завершені конкурси"],"raw_count":5,"multi_blocks":0}
+  [12:24:07] multi_grant                  {"blocks_found":0,"added":0}
+  [12:24:07] selection_gates              {"max_age_days":14,"age_samples":[],"non_ua_dropped":1,"non_ua_samples":["Грантерам"],"age_dropped":0}
+  [12:24:07] filter_fallback_category_pag {"sample_titles":["Конкурси та гранти","Завершені конкурси","Аплікаційна форма"],"passed":3,"raw":4}
+  [12:24:07] filter                       {"fallback_mode":true,"relaxed_mode":false,"filtered_samples":["Конкурси та гранти","Завершені конкурси","Програми","Аплікаційна форма"],"raw":4,"passed":3,"filtered":4}
+  [12:24:07] cache_check                  {"urls_to_check":3}
+  [12:24:07] result                       {"detailed":0,"dupes":3,"created":0,"is_multi":false}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 3
+     dup_cache: irf.ua/grants/contests
+     dup_cache: irf.ua/grants/contests-end
+     dup_cache: irf.ua/wp-content/uploads/2023/02/applform_grantee-2023.zip
+  ⚠️  non_ua_dropped: 1
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:21    filtered      2         0      0      
+  2026-04-03 07:50    filtered      2         0      0      
+  2026-04-03 07:17    filtered      2         0      0      
+  2026-04-03 06:46    filtered      2         0      0      
+  2026-04-03 06:15    filtered      2         0      0      
+  2026-04-03 05:44    filtered      2         0      0      
+  2026-04-03 05:13    filtered      2         0      0      
+  2026-04-03 04:42    filtered      2         0      0      
+  2026-04-03 04:11    filtered      2         0      0      
+  2026-04-03 03:40    filtered      2         0      0      
+  2026-04-03 03:09    filtered      2         0      0      
+  2026-04-03 12:24    ok_dupes      4         0      3      
+  2026-04-03 12:01    ok_dupes      4         0      3      
+  2026-04-03 11:07    ok_dupes      4         0      3      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ Prostir (RSS) ══
+  ID         : prostir_feed
+  URL        : https://prostir.ua/grants/feed/
+  Тип        : rss
+  Парсер     : rss
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:24
+  Статус     : ok_dupes
+  Знайдено   : 5
+  Після фільтру: 3
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 3
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : так
+
+  ── Кроки діагностики ──
+  [12:24:08] start                        {"windowDays":90,"override":true,"maxNew":20,"url":"https://www.prostir.ua/category/grants/","parser":"page_links"}
+  [12:24:10] parsed                       {"multi_blocks":0,"raw_count":2,"sample_titles":["Нові конкурси","Конкурс «Благодійна Україна» — номінація «Доброчинність у сф"]}
+  [12:24:10] multi_grant                  {"blocks_found":3,"added":3}
+  [12:24:10] selection_gates              {"max_age_days":14,"age_samples":[],"non_ua_dropped":0,"non_ua_samples":[],"age_dropped":0}
+  [12:24:10] filter                       {"filtered":2,"filtered_samples":["Нові конкурси","Конкурс «Благодійна Україна» — номінація «Доброчинність у сф"],"passed":3,"raw":5,"relaxed_mode":false,"fallback_mode":false}
+  [12:24:10] cache_check                  {"urls_to_check":1}
+  [12:24:11] result                       {"is_multi":true,"created":0,"dupes":3,"detailed":0}
+
+  ── Попередження ──
+  ♻️  Дублікатів пропущено: 3
+     dup_cache: prostir.ua
+     dup_cache: prostir.ua
+     dup_cache: prostir.ua
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:31    empty         0         0      0      
+  2026-04-03 08:00    empty         0         0      0      
+  2026-04-03 07:27    empty         0         0      0      
+  2026-04-03 06:56    empty         0         0      0      
+  2026-04-03 06:25    empty         0         0      0      
+  2026-04-03 05:54    empty         0         0      0      
+  2026-04-03 05:23    empty         0         0      0      
+  2026-04-03 04:52    empty         0         0      0      
+  2026-04-03 04:21    empty         0         0      0      
+  2026-04-03 03:50    empty         0         0      0      
+  2026-04-03 03:19    empty         0         0      0      
+  2026-04-03 12:24    ok_dupes      5         0      3      
+  2026-04-03 12:02    ok_dupes      5         0      3      
+  2026-04-03 11:08    ok_dupes      5         0      3      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ ReliefWeb Funding ══
+  ID         : reliefweb_funding
+  URL        : https://reliefweb.int/jobs/rss?country=254&type=2
+  Тип        : rss
+  Парсер     : rss
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:24
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:24:12] start                        {"parser":"rss","url":"https://api.reliefweb.int/v1/jobs?appname=kontrol-pro&filter[field]=country.iso3&filter[value]=UKR&fields[include][]=title&fields[include][]=date&fields[include][]=url&limit=20","windowDays":90,"maxNew":15,"override":true}
+  [12:24:12] reliefweb_api_error          {"status":410}
+  [12:24:12] parsed                       {"multi_blocks":0,"sample_titles":[],"raw_count":0}
+  [12:24:12] rss_retry_all_empty          {"note":"Фід порожній навіть за 90 днів"}
+  [12:24:12] selection_gates              {"max_age_days":14,"non_ua_dropped":0,"age_samples":[],"age_dropped":0,"non_ua_samples":[]}
+  [12:24:12] filter                       {"relaxed_mode":false,"fallback_mode":false,"filtered":0,"filtered_samples":[],"raw":0,"passed":0}
+  [12:24:12] cache_check                  {"urls_to_check":0}
+  [12:24:12] result                       {"detailed":0,"created":0,"is_multi":false,"dupes":0}
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:24    empty         0         0      0      
+  2026-04-03 12:03    empty         0         0      0      
+  2026-04-03 11:09    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ ReliefWeb UA ══
+  ID         : reliefweb_ukraine
+  URL        : https://reliefweb.int/updates/rss?country=254
+  Тип        : rss
+  Парсер     : rss
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:24
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:24:13] start                        {"maxNew":20,"override":true,"windowDays":90,"url":"https://api.reliefweb.int/v1/reports?appname=kontrol-pro&filter[operator]=AND&filter[conditions][0][field]=country.iso3&filter[conditions][0][value]=UKR&filter[conditions][1][field]=theme.name&filter[conditions][1][value]=Funding&fields[include][]=…
+  [12:24:13] reliefweb_api_error          {"status":410}
+  [12:24:13] parsed                       {"multi_blocks":0,"raw_count":0,"sample_titles":[]}
+  [12:24:13] rss_retry_all_empty          {"note":"Фід порожній навіть за 90 днів"}
+  [12:24:13] selection_gates              {"max_age_days":14,"non_ua_dropped":0,"age_samples":[],"age_dropped":0,"non_ua_samples":[]}
+  [12:24:13] filter                       {"filtered_samples":[],"raw":0,"passed":0,"filtered":0,"fallback_mode":false,"relaxed_mode":false}
+  [12:24:13] cache_check                  {"urls_to_check":0}
+  [12:24:13] result                       {"dupes":0,"created":0,"is_multi":false,"detailed":0}
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:30    empty         0         0      0      
+  2026-04-03 07:59    empty         0         0      0      
+  2026-04-03 07:26    empty         0         0      0      
+  2026-04-03 06:55    empty         0         0      0      
+  2026-04-03 06:24    empty         0         0      0      
+  2026-04-03 05:53    empty         0         0      0      
+  2026-04-03 05:22    empty         0         0      0      
+  2026-04-03 04:51    empty         0         0      0      
+  2026-04-03 04:20    empty         0         0      0      
+  2026-04-03 03:49    empty         0         0      0      
+  2026-04-03 03:18    empty         0         0      0      
+  2026-04-03 12:24    empty         0         0      0      
+  2026-04-03 12:04    empty         0         0      0      
+  2026-04-03 11:10    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ UNDP Ukraine ══
+  ID         : tg_undp_ukraine
+  URL        : https://t.me/s/undp_ukraine
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:24
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:24:14] start                        {"url":"https://t.me/s/undp_ukraine","windowDays":30,"maxNew":15,"override":false,"parser":"telegram"}
+  [12:24:14] parsed                       {"sample_titles":[],"raw_count":0,"multi_blocks":0}
+  [12:24:14] selection_gates              {"non_ua_dropped":0,"age_samples":[],"age_dropped":0,"non_ua_samples":[],"max_age_days":14}
+  [12:24:14] filter                       {"fallback_mode":false,"relaxed_mode":false,"filtered_samples":[],"passed":0,"raw":0,"filtered":0}
+  [12:24:14] cache_check                  {"urls_to_check":0}
+  [12:24:15] result                       {"is_multi":false,"created":0,"dupes":0,"detailed":0}
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:24    empty         0         0      0      
+  2026-04-03 12:05    empty         0         0      0      
+  2026-04-03 11:11    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ UNDP Ukraine ══
+  ID         : undp_ukraine
+  URL        : https://www.undp.org/ukraine/grants
+  Тип        : page
+  Парсер     : page_links
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 7
+  Ліміт      : 20
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:24
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:24:15] start                        {"parser":"page_links","url":"https://www.undp.org/ukraine/news","windowDays":7,"override":true,"maxNew":20}
+  [12:24:20] parsed                       {"sample_titles":[],"raw_count":0,"multi_blocks":0}
+  [12:24:20] multi_grant                  {"added":0,"blocks_found":0}
+  [12:24:20] selection_gates              {"age_samples":[],"non_ua_dropped":0,"non_ua_samples":[],"age_dropped":0,"max_age_days":14}
+  [12:24:20] filter                       {"fallback_mode":false,"relaxed_mode":false,"passed":0,"raw":0,"filtered_samples":[],"filtered":0}
+  [12:24:20] cache_check                  {"urls_to_check":0}
+  [12:24:20] result                       {"created":0,"is_multi":false,"dupes":0,"detailed":0}
+
+  ── Історія останніх 14 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 08:14    empty         0         0      0      
+  2026-04-03 07:43    empty         0         0      0      
+  2026-04-03 07:10    empty         0         0      0      
+  2026-04-03 06:39    empty         0         0      0      
+  2026-04-03 06:08    empty         0         0      0      
+  2026-04-03 05:37    empty         0         0      0      
+  2026-04-03 05:06    empty         0         0      0      
+  2026-04-03 04:35    empty         0         0      0      
+  2026-04-03 04:04    empty         0         0      0      
+  2026-04-03 03:33    empty         0         0      0      
+  2026-04-03 03:02    empty         0         0      0      
+  2026-04-03 12:24    empty         0         0      0      
+  2026-04-03 12:06    empty         0         0      0      
+  2026-04-03 11:12    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+✅ ══ USAID Ukraine ══
+  ID         : tg_usaid_ukraine
+  URL        : https://t.me/s/usaidukraine
+  Тип        : telegram
+  Парсер     : telegram
+  Статус     : active
+  Пріоритет  : high
+  Вікно (дн) : 30
+  Ліміт      : 15
+  Всього знайдено за весь час: 0
+
+  ── Останнє сканування ──
+  Час        : 2026-04-03 12:24
+  Статус     : empty
+  Знайдено   : 0
+  Після фільтру: 0
+  Відсіяно >14 днів: 0
+  Відсіяно не UA : 0
+  Fallback фільтр: ні
+  Нових      : 0
+  Дублів     : 0
+  Деталей    : 0
+  HTTP       : —
+  Мульти     : ні
+
+  ── Кроки діагностики ──
+  [12:24:21] start                        {"parser":"telegram","override":false,"maxNew":15,"windowDays":30,"url":"https://t.me/s/usaidukraine"}
+  [12:24:22] parsed                       {"multi_blocks":0,"raw_count":0,"sample_titles":[]}
+  [12:24:22] selection_gates              {"non_ua_dropped":0,"age_samples":[],"age_dropped":0,"non_ua_samples":[],"max_age_days":14}
+  [12:24:22] filter                       {"relaxed_mode":false,"fallback_mode":false,"filtered":0,"raw":0,"passed":0,"filtered_samples":[]}
+  [12:24:22] cache_check                  {"urls_to_check":0}
+  [12:24:22] result                       {"is_multi":false,"created":0,"dupes":0,"detailed":0}
+
+  ── Історія останніх 3 сканувань ──
+  Час                 Статус        Знайдено  Нових  Дублів Помилка
+  ────────────────────────────────────────────────────────────────────────────────
+  2026-04-03 12:24    empty         0         0      0      
+  2026-04-03 12:07    empty         0         0      0      
+  2026-04-03 11:13    empty         0         0      0      
+  ──────────────────────────────────────────────────────────────────────
+
+══════════════════════════════════════════════════════════════════
+Кінець звіту · 03.04.2026, 12:28:20
+══════════════════════════════════════════════════════════════════
