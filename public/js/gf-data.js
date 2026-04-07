@@ -14,8 +14,23 @@ var GFC = {
 async function gfAll(col, ord, dir, lim) {
   var r = db.collection(col);
   if (ord) r = r.orderBy(ord, dir || 'desc');
-  var s = await r.limit(lim || 600).get();
+  var s = await r.limit(lim || 500).get();
   var a = []; s.forEach(function(d) { a.push(Object.assign({_id:d.id}, d.data())); }); return a;
+}
+
+/* ── Читає ВСІ документи колекції батчами (для великих колекцій) ── */
+async function gfAllPaged(col, ord, dir) {
+  var r = db.collection(col);
+  if (ord) r = r.orderBy(ord, dir || 'desc');
+  var all = [], last = null, batchSize = 500;
+  while (true) {
+    var q = last ? r.startAfter(last).limit(batchSize) : r.limit(batchSize);
+    var snap = await q.get();
+    snap.forEach(function(d) { all.push(Object.assign({_id:d.id}, d.data())); });
+    if (snap.docs.length < batchSize) break;
+    last = snap.docs[snap.docs.length - 1];
+  }
+  return all;
 }
 async function gfDoc(col, id) {
   var s = await db.collection(col).doc(id).get();
@@ -50,7 +65,139 @@ async function gfArchiveSource(id, reason) {
 }
 
 /* ── Detected ── */
-async function gfGetDetected() { return gfAll(GFC.detected, 'found_at', 'desc'); }
+/* Для відображення — остання 1000 записів (UI не потребує більше) */
+async function gfGetDetected(limitN) { return gfAll(GFC.detected, 'found_at', 'desc', limitN || 1000); }
+
+/* ── Статистика (лічильник) ── */
+var GF_STATS_ID = 'main_stats';
+
+async function gfGetStats() {
+  var d = await gfDoc(GFC.settings, GF_STATS_ID);
+  return d ? d : {
+    total: 0, pending: 0, rejected: 0, approved: 0, highPriority: 0,
+    rejectedToday: 0, rejected7: 0, rejected30: 0,
+    approvedToday: 0, approved7: 0, approved30: 0,
+    rejectedReasons: {}, topRejectedUsers: {}, topApprovedUsers: {},
+    lastRebuild: null
+  };
+}
+
+/* Оновлюємо лічильник при зміні статусу */
+async function gfUpdateStatOnChange(oldStatus, newStatus, reason, user) {
+  var today = new Date().toISOString().slice(0, 10);
+  var rejSt = ['Не підходить', 'Видалено первинно'];
+  var apprSt = ['Корисне', 'В базу'];
+
+  var inc = {};
+  var wasRej = rejSt.indexOf(oldStatus) >= 0;
+  var wasAppr = apprSt.indexOf(oldStatus) >= 0;
+  var wasPend = !oldStatus || oldStatus === 'Виявлено';
+  var isRej = rejSt.indexOf(newStatus) >= 0;
+  var isAppr = apprSt.indexOf(newStatus) >= 0;
+  var isPend = !newStatus || newStatus === 'Виявлено';
+
+  // Лічильник відхилених
+  if (isRej && !wasRej) {
+    inc['rejected'] = firebase.firestore.FieldValue.increment(1);
+    inc['rejectedToday'] = firebase.firestore.FieldValue.increment(1);
+    inc['rejected7'] = firebase.firestore.FieldValue.increment(1);
+    inc['rejected30'] = firebase.firestore.FieldValue.increment(1);
+    if (reason) {
+      inc['rejectedReasons.' + reason.replace(/[.\/]/g, '_')] = firebase.firestore.FieldValue.increment(1);
+    }
+    if (user) {
+      inc['topRejectedUsers.' + user.replace(/[.\/]/g, '_')] = firebase.firestore.FieldValue.increment(1);
+    }
+  } else if (wasRej && !isRej) {
+    inc['rejected'] = firebase.firestore.FieldValue.increment(-1);
+  }
+
+  // Лічильник погоджених
+  if (isAppr && !wasAppr) {
+    inc['approved'] = firebase.firestore.FieldValue.increment(1);
+    inc['approvedToday'] = firebase.firestore.FieldValue.increment(1);
+    inc['approved7'] = firebase.firestore.FieldValue.increment(1);
+    inc['approved30'] = firebase.firestore.FieldValue.increment(1);
+    if (user) {
+      inc['topApprovedUsers.' + user.replace(/[.\/]/g, '_')] = firebase.firestore.FieldValue.increment(1);
+    }
+  } else if (wasAppr && !isAppr) {
+    inc['approved'] = firebase.firestore.FieldValue.increment(-1);
+  }
+
+  // Очікують перегляду
+  if (isPend && !wasPend) inc['pending'] = firebase.firestore.FieldValue.increment(1);
+  else if (wasPend && !isPend) inc['pending'] = firebase.firestore.FieldValue.increment(-1);
+
+  inc['updatedAt'] = new Date().toISOString();
+  if (Object.keys(inc).length > 1) {
+    await gfSet(GFC.settings, GF_STATS_ID, inc);
+  }
+}
+
+/* Додається новий запис — збільшуємо total і pending */
+async function gfStatOnNewDetected() {
+  await gfSet(GFC.settings, GF_STATS_ID, {
+    total: firebase.firestore.FieldValue.increment(1),
+    pending: firebase.firestore.FieldValue.increment(1),
+    updatedAt: new Date().toISOString()
+  });
+}
+
+/* Повне перерахування статистики з нуля (для синхронізації) */
+async function gfRebuildStats() {
+  toast('📊 Перераховую статистику...');
+  var all = await gfAllPaged(GFC.detected, 'found_at', 'desc');
+  var now = new Date();
+  var today = now.toISOString().slice(0, 10);
+  var d7 = new Date(now - 7 * 864e5).toISOString().slice(0, 10);
+  var d30 = new Date(now - 30 * 864e5).toISOString().slice(0, 10);
+
+  var rejSt = ['Не підходить', 'Видалено первинно'];
+  var apprSt = ['Корисне', 'В базу'];
+
+  var stats = {
+    total: all.length,
+    pending: 0, rejected: 0, approved: 0, highPriority: 0,
+    rejectedToday: 0, rejected7: 0, rejected30: 0,
+    approvedToday: 0, approved7: 0, approved30: 0,
+    rejectedReasons: {}, topRejectedUsers: {}, topApprovedUsers: {},
+    lastRebuild: new Date().toISOString(), updatedAt: new Date().toISOString()
+  };
+
+  all.forEach(function(d) {
+    var st = d.status || 'Виявлено';
+    var isRej = rejSt.indexOf(st) >= 0;
+    var isAppr = apprSt.indexOf(st) >= 0;
+    var isPend = !d.status || st === 'Виявлено';
+    var chAt = (d.status_changed_at || '').slice(0, 10);
+
+    if (isPend) stats.pending++;
+    if (isRej) {
+      stats.rejected++;
+      if (chAt >= today) stats.rejectedToday++;
+      if (chAt >= d7) stats.rejected7++;
+      if (chAt >= d30) stats.rejected30++;
+      var r = (d.status_reason || 'Без причини').replace(/[.\/]/g, '_');
+      stats.rejectedReasons[r] = (stats.rejectedReasons[r] || 0) + 1;
+      var u = (d.status_changed_by || '?').replace(/[.\/]/g, '_');
+      stats.topRejectedUsers[u] = (stats.topRejectedUsers[u] || 0) + 1;
+    }
+    if (isAppr) {
+      stats.approved++;
+      if (chAt >= today) stats.approvedToday++;
+      if (chAt >= d7) stats.approved7++;
+      if (chAt >= d30) stats.approved30++;
+      var u2 = (d.status_changed_by || '?').replace(/[.\/]/g, '_');
+      stats.topApprovedUsers[u2] = (stats.topApprovedUsers[u2] || 0) + 1;
+    }
+    if ((d.auto_priority === 'high' || d.auto_priority === 'critical') && !isRej) stats.highPriority++;
+  });
+
+  await gfSet(GFC.settings, GF_STATS_ID, stats);
+  toast('✅ Статистику перераховано (' + all.length + ' записів)');
+  return stats;
+}
 async function gfSaveDetected(d) {
   var id = d.detected_id || d._id || 'det_' + Date.now();
   delete d._id;
@@ -60,11 +207,19 @@ async function gfSaveDetected(d) {
   return id;
 }
 async function gfSetDetectedStatus(id, status, reason, comment) {
-  return gfUpd(GFC.detected, id, {
+  // Читаємо старий статус для оновлення лічильника
+  var user = (typeof CUR_USER!=='undefined'&&CUR_USER) ? CUR_USER.name : '';
+  var oldDoc = await gfDoc(GFC.detected, id);
+  var oldStatus = oldDoc ? (oldDoc.status || 'Виявлено') : 'Виявлено';
+
+  await gfUpd(GFC.detected, id, {
     status:status, status_reason:reason||'', status_comment:comment||'',
     status_changed_at:new Date().toISOString(),
-    status_changed_by:(typeof CUR_USER!=='undefined'&&CUR_USER)?CUR_USER.name:''
+    status_changed_by:user
   });
+
+  // Оновлюємо лічильник статистики
+  try { await gfUpdateStatOnChange(oldStatus, status, reason, user); } catch(e) { console.warn('stats update error:', e); }
 }
 
 /* ── Opportunities ── */
@@ -91,51 +246,54 @@ async function gfLog(eType, eId, action, oldSt, newSt, notes) {
 
 /* ── Aggregated overview data ── */
 async function gfLoadAll() {
+  // Паралельно читаємо: останні 1000 detected (для UI), джерела, опції і лічильник статистики
   var res = await Promise.all([
-    gfGetDetected(), gfGetSources(), gfAll(GFC.archive), gfGetOpps(),
+    gfGetDetected(1000), gfGetSources(), gfAll(GFC.archive), gfGetOpps(),
     gfAll(GFC.approvals), gfAll(GFC.assigns), gfAll(GFC.tasks),
-    gfAll(GFC.notifs), gfAll(GFC.contacts)
+    gfAll(GFC.notifs), gfAll(GFC.contacts), gfGetStats()
   ]);
   var det=res[0], src=res[1], arch=res[2], opp=res[3],
-      apr=res[4], asg=res[5], tsk=res[6], ntf=res[7], cnt=res[8];
+      apr=res[4], asg=res[5], tsk=res[6], ntf=res[7], cnt=res[8], sts=res[9];
 
-  var now=new Date(), today=now.toISOString().slice(0,10),
-      d7=new Date(now-7*864e5).toISOString().slice(0,10),
-      d30=new Date(now-30*864e5).toISOString().slice(0,10),
-      d365=new Date(now-365*864e5).toISOString().slice(0,10);
+  var actSrc = src.filter(function(s){ return s.source_status==='active'; });
+  var rejSt = ['Не підходить','Видалено первинно'];
 
-  var actSrc=src.filter(function(s){return s.source_status==='active';});
-  var rejSt=['Не підходить','Видалено первинно'];
-  var rej=det.filter(function(d){return rejSt.indexOf(d.status)>=0;});
-  var appr=det.filter(function(d){return d.status==='Корисне'||d.status==='В базу';});
-
-  function cntD(arr,f,from){return arr.filter(function(d){return(d[f]||'').slice(0,10)>=from;}).length;}
-  var reasons={};
-  rej.forEach(function(d){var r=d.status_reason||'Без причини';reasons[r]=(reasons[r]||0)+1;});
-
-  function topU(arr,f){
-    var m={};arr.forEach(function(d){var u=d[f]||'?';m[u]=(m[u]||0)+1;});
-    return Object.keys(m).map(function(u){return{user:u,count:m[u]};})
-      .sort(function(a,b){return b.count-a.count;}).slice(0,5);
+  // Причини і топ-користувачі — конвертуємо з об'єкту назад у масив
+  function objToArr(obj) {
+    return Object.keys(obj||{}).map(function(k){ return {user:k.replace(/_/g,' '), count:obj[k]}; })
+      .sort(function(a,b){ return b.count - a.count; }).slice(0, 5);
+  }
+  function objToReasons(obj) {
+    var r = {};
+    Object.keys(obj||{}).forEach(function(k){ r[k.replace(/_/g,' ')] = obj[k]; });
+    return r;
   }
 
   return {
     detected:det, sources:src, archive:arch, opps:opp, approvals:apr,
-    assigns:asg, tasks:tsk, notifs:ntf, contacts:cnt,
+    assigns:asg, tasks:tsk, notifs:ntf, contacts:cnt, statsDoc:sts,
     overview:{
-      detectedCount:det.length, oppCount:opp.length, sourcesCount:src.length,
-      activeSources:actSrc.length,
-      scansTotal:src.reduce(function(s,x){return s+(parseInt(x.found_count)||0);},0),
-      deletedTotal:rej.length,
-      pendingApprovals:apr.filter(function(a){return a.approval_status==='на погодженні';}).length,
-      highPriority:det.filter(function(d){return(d.auto_priority==='high'||d.auto_priority==='critical')&&rejSt.indexOf(d.status)<0;}).length,
-      deletedToday:cntD(rej,'status_changed_at',today), deleted7:cntD(rej,'status_changed_at',d7),
-      deleted30:cntD(rej,'status_changed_at',d30), deleted365:cntD(rej,'status_changed_at',d365),
-      approvedToday:cntD(appr,'status_changed_at',today), approved7:cntD(appr,'status_changed_at',d7),
-      approved30:cntD(appr,'status_changed_at',d30), approved365:cntD(appr,'status_changed_at',d365),
-      deletedReasons:reasons,
-      topDeletedUsers:topU(rej,'status_changed_by'),
-      topApprovedUsers:topU(appr,'status_changed_by')
+      // Загальні лічильники — з лічильника (точні, незалежно від обсягу)
+      detectedCount: sts.total || det.length,
+      oppCount: opp.length,
+      sourcesCount: src.length,
+      activeSources: actSrc.length,
+      scansTotal: src.reduce(function(s,x){ return s+(parseInt(x.found_count)||0); }, 0),
+      deletedTotal: sts.rejected || 0,
+      pendingApprovals: apr.filter(function(a){ return a.approval_status==='на погодженні'; }).length,
+      highPriority: sts.highPriority || 0,
+      // Часові лічильники — з лічильника
+      deletedToday: sts.rejectedToday||0, deleted7: sts.rejected7||0,
+      deleted30: sts.rejected30||0, deleted365: sts.rejected30||0,
+      approvedToday: sts.approvedToday||0, approved7: sts.approved7||0,
+      approved30: sts.approved30||0, approved365: sts.approved30||0,
+      // Причини і користувачі — з лічильника
+      deletedReasons: objToReasons(sts.rejectedReasons),
+      topDeletedUsers: objToArr(sts.topRejectedUsers),
+      topApprovedUsers: objToArr(sts.topApprovedUsers),
+      // Для UI що потребує реальних даних
+      newToday: det.filter(function(d){ return (d.found_at||'').slice(0,10) === new Date().toISOString().slice(0,10); }).length,
+      pendingReview: sts.pending || det.filter(function(d){ return !d.status||d.status==='Виявлено'; }).length
     }
   };
 }
