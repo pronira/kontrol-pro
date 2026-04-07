@@ -536,9 +536,23 @@ function delDoc(row) {
   var parentRow = curDoc && curDoc.parentId && String(curDoc.parentId) !== String(row) && String(curDoc.parentId) !== '0' && curDoc.parentId !== ''
     ? String(curDoc.parentId) : String(row);
 
-  // Всі документи серії (батько + дочірні без виконання)
+  // Всі документи серії (батько + дочірні)
+  // Нормалізуємо parentRow для порівняння (ctrl_ формат)
+  var normParent = parentRow;
   var allSeries = D.filter(function(d){
-    return String(d.row) === parentRow || String(d.parentId) === parentRow;
+    if (String(d.row) === normParent) return true;
+    var dPid = String(d.parentId || '');
+    // Порівнюємо і як рядок і як ctrl_ формат
+    if (dPid === normParent) return true;
+    // Якщо parentId число — конвертуємо
+    if (dPid && dPid !== '0' && dPid !== '' && normParent.indexOf('ctrl_') === 0) {
+      var numPid = parseInt(dPid);
+      if (!isNaN(numPid)) {
+        var converted = 'ctrl_' + String(numPid).padStart(4, '0');
+        if (converted === normParent) return true;
+      }
+    }
+    return false;
   });
 
   // Наступні невиконані: цей + дочірні з датою >= поточного і без done
@@ -609,7 +623,14 @@ function delDocFromHere(row, parentRow) {
   var curDeadline = curDoc ? pD(curDoc.deadline) : null;
 
   var allSeries = D.filter(function(d){
-    return String(d.row) === parentRow || String(d.parentId) === parentRow;
+    if (String(d.row) === parentRow) return true;
+    var dPid = String(d.parentId || '');
+    if (dPid === parentRow) return true;
+    if (dPid && dPid !== '0' && parentRow.indexOf('ctrl_') === 0) {
+      var n = parseInt(dPid);
+      if (!isNaN(n) && 'ctrl_' + String(n).padStart(4,'0') === parentRow) return true;
+    }
+    return false;
   });
   var toDelete = allSeries.filter(function(d){
     if (d.done) return false;
@@ -637,7 +658,14 @@ function delDocFromHere(row, parentRow) {
 /* Видаляємо всю серію — withDone=true включає виконані */
 function delDocSeries(parentRow, withDone) {
   var allSeries = D.filter(function(d){
-    return String(d.row) === parentRow || String(d.parentId) === parentRow;
+    if (String(d.row) === parentRow) return true;
+    var dPid = String(d.parentId || '');
+    if (dPid === parentRow) return true;
+    if (dPid && dPid !== '0' && parentRow.indexOf('ctrl_') === 0) {
+      var n = parseInt(dPid);
+      if (!isNaN(n) && 'ctrl_' + String(n).padStart(4,'0') === parentRow) return true;
+    }
+    return false;
   });
   var toDelete = withDone ? allSeries : allSeries.filter(function(d){ return !d.done; });
   if (!toDelete.length) { delDocSingle(parentRow); return; }
@@ -657,15 +685,55 @@ function delDocSeries(parentRow, withDone) {
 
 
 /* ─── CANCEL / SUSPEND DOC ─── */
+/* ─── Допоміжна функція: знайти всі документи серії ─── */
+function getSeriesRows(row) {
+  var curDoc = null;
+  for (var i = 0; i < D.length; i++) { if (String(D[i].row) === String(row)) { curDoc = D[i]; break; } }
+  var parentRow = (curDoc && curDoc.parentId && String(curDoc.parentId) !== '0' && curDoc.parentId !== '' && String(curDoc.parentId) !== String(row))
+    ? String(curDoc.parentId) : String(row);
+  return D.filter(function(d) {
+    if (String(d.row) === parentRow) return true;
+    var dPid = String(d.parentId || '');
+    if (dPid === parentRow) return true;
+    if (dPid && dPid !== '0' && parentRow.indexOf('ctrl_') === 0) {
+      var n = parseInt(dPid);
+      if (!isNaN(n) && 'ctrl_' + String(n).padStart(4,'0') === parentRow) return true;
+    }
+    return false;
+  });
+}
+
+
 function openCancelDoc(row) {
-  var children = D.filter(function(d){ return String(d.parentId) === String(row) && String(d.row) !== String(row) && !d.done; });
-  var cntAll = children.length + 1;
-  var seriesBtn = children.length > 0
-    ? '<button class="btn btn-s btn-sm" id="cn-series-btn" style="font-size:.72rem;margin-bottom:8px;width:100%" onclick="cancelSeriesMode(this,' + children.length + ')">🔄 Застосувати до всієї серії (' + cntAll + ' записів)</button>'
-    : '';
+  // Знаходимо серію
+  var series = getSeriesRows(row);
+  var curDeadline = (function(){ for(var i=0;i<D.length;i++) if(String(D[i].row)===String(row)) return pD(D[i].deadline); return null; })();
+  var nextUndone = series.filter(function(d){
+    if (d.done) return false;
+    if (String(d.row) === String(row)) return true;
+    var dl = pD(d.deadline);
+    return dl && curDeadline && dl >= curDeadline;
+  });
+  var allUndone = series.filter(function(d){ return !d.done; });
+  var hasSeries = series.length > 1;
+
+  // Будуємо форму — якщо є серія показуємо вибір масштабу скасування
+  var scopeHtml = '';
+  if (hasSeries) {
+    scopeHtml = '<div class="fg"><label>Масштаб скасування</label>' +
+      '<div style="display:flex;flex-direction:column;gap:5px;margin-top:4px">' +
+      '<label style="display:flex;align-items:center;gap:6px;font-size:.8rem;cursor:pointer;padding:6px 8px;border:1px solid var(--brd);border-radius:var(--r2)"><input type="radio" name="cn-scope" value="one" checked style="accent-color:var(--acc)"> Лише цей запис</label>';
+    if (nextUndone.length > 1) {
+      scopeHtml += '<label style="display:flex;align-items:center;gap:6px;font-size:.8rem;cursor:pointer;padding:6px 8px;border:1px solid var(--brd);border-radius:var(--r2)"><input type="radio" name="cn-scope" value="next" style="accent-color:var(--acc)"> Цей і всі наступні невиконані (' + nextUndone.length + ' записів)</label>';
+    }
+    if (allUndone.length > 1) {
+      scopeHtml += '<label style="display:flex;align-items:center;gap:6px;font-size:.8rem;cursor:pointer;padding:6px 8px;border:1px solid var(--brd);border-radius:var(--r2)"><input type="radio" name="cn-scope" value="all" style="accent-color:var(--acc)"> Всю серію — всі невиконані (' + allUndone.length + ' записів)</label>';
+    }
+    scopeHtml += '</div></div>';
+  }
+
   el('rpc').innerHTML = '<div style="margin-top:18px"><h2 style="font-size:1rem;font-weight:700;margin-bottom:10px">🚫 Скасування / Припинення</h2>' +
-    seriesBtn +
-    '<input type="hidden" id="cn-series" value="0">' +
+    scopeHtml +
     '<div class="fg"><label>Причина</label><select id="cn-reason">' +
     '<option>Скасовано</option>' +
     '<option>Припинено виконання</option>' +
@@ -677,51 +745,59 @@ function openCancelDoc(row) {
   openP();
 }
 
-function cancelSeriesMode(btn, count) {
-  var inp = el('cn-series');
-  var isOn = inp.value === '1';
-  inp.value = isOn ? '0' : '1';
-  btn.style.background = isOn ? '' : 'var(--orn)';
-  btn.style.color = isOn ? '' : '#fff';
-  btn.textContent = isOn
-    ? '🔄 Застосувати до всієї серії (' + (count+1) + ' записів)'
-    : '✅ Буде скасовано всю серію (' + (count+1) + ' записів)';
-}
-
 
 function doCancelDoc(row) {
   var reason = el('cn-reason') ? el('cn-reason').value : 'Скасовано';
   var detail = el('cn-detail') ? el('cn-detail').value.trim() : '';
   var link = el('cn-link') ? el('cn-link').value.trim() : '';
   var doneText = reason + (detail ? ': ' + detail : '') + (link ? ' [' + link + ']' : '');
-  var isSeries = el('cn-series') && el('cn-series').value === '1';
+  var today = isoT().split('-').reverse().join('.');
 
-  if (isSeries) {
-    // Скасовуємо всю серію послідовно
-    var series = D.filter(function(d){
-      return (String(d.row) === String(row) || String(d.parentId) === String(row)) && !d.done;
-    });
-    toast('🚫 Скасовую ' + series.length + ' записів...');
-    var idx = 0;
-    var today = isoT().split('-').reverse().join('.');
-    function cancelNext() {
-      if (idx >= series.length) {
-        logAction('cancel_series', doneText + ' (' + series.length + ' записів)', row);
-        toast('🚫 Скасовано ' + series.length + ' записів');
-        closeP(); loadData();
-        return;
-      }
-      var r = series[idx]; idx++;
-      apiP({action:'markDone', row:r.row, doneText:doneText, doneDate:today}).then(function(){ cancelNext(); }).catch(function(){ cancelNext(); });
-    }
-    cancelNext();
-  } else {
-    // Скасовуємо лише один запис
+  // Визначаємо масштаб
+  var scopeEl = document.querySelector('input[name="cn-scope"]:checked');
+  var scope = scopeEl ? scopeEl.value : 'one';
+
+  if (scope === 'one') {
+    // Лише один запис
     toast('💾...');
-    apiP({action:'markDone', row:row, doneText:doneText, doneDate:isoT().split('-').reverse().join('.')}).then(function(r) {
+    apiP({action:'markDone', row:row, doneText:doneText, doneDate:today}).then(function(r) {
       if (r.ok) { toast('🚫 ' + reason); closeP(); loadData(); } else toast('❌ ' + (r.error||''));
     }).catch(function(e) { toast('❌ ' + e.message); });
+    return;
   }
+
+  // Визначаємо які записи скасовувати
+  var series = getSeriesRows(row);
+  var curDeadline = (function(){ for(var i=0;i<D.length;i++) if(String(D[i].row)===String(row)) return pD(D[i].deadline); return null; })();
+  var toCancel;
+
+  if (scope === 'next') {
+    // Цей і всі наступні невиконані
+    toCancel = series.filter(function(d){
+      if (d.done) return false;
+      if (String(d.row) === String(row)) return true;
+      var dl = pD(d.deadline);
+      return dl && curDeadline && dl >= curDeadline;
+    });
+  } else {
+    // Всі невиконані в серії
+    toCancel = series.filter(function(d){ return !d.done; });
+  }
+
+  if (!toCancel.length) { toast('⚠️ Нічого для скасування'); return; }
+  toast('🚫 Скасовую ' + toCancel.length + ' записів...');
+  var idx = 0;
+  function cancelNext() {
+    if (idx >= toCancel.length) {
+      logAction('cancel_series', doneText + ' (' + toCancel.length + ' записів)', row);
+      toast('🚫 Скасовано ' + toCancel.length + ' записів');
+      closeP(); loadData(); return;
+    }
+    var r = toCancel[idx]; idx++;
+    apiP({action:'markDone', row:r.row, doneText:doneText, doneDate:today})
+      .then(function(){ cancelNext(); }).catch(function(){ cancelNext(); });
+  }
+  cancelNext();
 }
 
 

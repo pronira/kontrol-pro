@@ -53,7 +53,7 @@ function docToRow(doc) {
     deadline: d.deadline_str || tsToStr(d.deadline) || '',
     recurring: d.recurring || '',
     periodEnd: d.periodEnd_str || tsToStr(d.periodEnd) || '',
-    parentId: d.parentId ? (String(d.parentId).indexOf('ctrl_') === 0 ? d.parentId : 'ctrl_' + String(d.parentId).padStart(4, '0')) : '',
+    parentId: (d.parentId && d.parentId !== 0 && d.parentId !== '0') ? (String(d.parentId).indexOf('ctrl_') === 0 ? d.parentId : 'ctrl_' + String(d.parentId).padStart(4, '0')) : '',
     done: d.done ? true : false,
     docLink: d.docLink || '',
     respLink: d.respLink || '',
