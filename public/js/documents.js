@@ -196,10 +196,23 @@ function doFinalSave(payload) {
             toast('✅ Збережено'); closeP(); loadData();
           });
         } else {
-          // Редагування — перевіряємо чи є вже дочірні
-          syncRecurringChildren(savedRow, payload, function() {
+          // Редагування — тільки для батьківського документа!
+          // Знаходимо документ в D[] щоб перевірити parentId
+          var editedDoc = null;
+          for (var i = 0; i < D.length; i++) {
+            if (String(D[i].row) === String(savedRow)) { editedDoc = D[i]; break; }
+          }
+          // Батьківський: parentId порожній АБО parentId === row (сам на себе)
+          var pid = editedDoc ? String(editedDoc.parentId || '') : '';
+          var isTrueParent = !pid || pid === String(savedRow) || pid === '0' || pid === '';
+          if (isTrueParent) {
+            syncRecurringChildren(savedRow, payload, function() {
+              toast('✅ Збережено'); closeP(); loadData();
+            });
+          } else {
+            // Дочірній документ — не чіпаємо серію
             toast('✅ Збережено'); closeP(); loadData();
-          });
+          }
         }
       }
 
@@ -514,24 +527,72 @@ function delDoc(row) {
     }).catch(function(e){toast('❌ '+e.message)});
     return;
   }
-  // Перевіряємо чи є дочірні документи
-  var children = D.filter(function(d){ return String(d.parentId) === String(row) && String(d.row) !== String(row); });
-  if (children.length > 0) {
-    // Є дочірні — показуємо вибір
-    el('rpc').innerHTML = '<div style="margin-top:18px"><h2 style="font-size:1rem;font-weight:700;margin-bottom:10px">🗑 Видалення</h2>' +
-      '<p style="font-size:.82rem;color:var(--tx2);margin-bottom:14px">Цей документ має <b>' + children.length + '</b> повторень. Що видалити?</p>' +
-      '<div style="display:flex;flex-direction:column;gap:8px">' +
-      '<button class="btn btn-d" onclick="delDocSeries(\x27' + row + '\x27)" style="padding:12px;font-size:.88rem">🗑 Видалити всю серію (' + (children.length+1) + ' записів)</button>' +
-      '<button class="btn btn-s" onclick="delDocSingle(\x27' + row + '\x27)" style="padding:12px;font-size:.88rem">🗑 Видалити лише цей запис</button>' +
-      '<button class="btn btn-s" onclick="openDet(\x27' + row + '\x27)">← Скасувати</button>' +
-      '</div></div>';
-    openP();
-  } else {
-    // Немає дочірніх — звичайне видалення
+
+  // Знаходимо поточний документ
+  var curDoc = null;
+  for (var i = 0; i < D.length; i++) { if (String(D[i].row) === String(row)) { curDoc = D[i]; break; } }
+
+  // Визначаємо parentRow — якщо батько то сам row, якщо дочірній то parentId
+  var parentRow = curDoc && curDoc.parentId && String(curDoc.parentId) !== String(row) && String(curDoc.parentId) !== '0' && curDoc.parentId !== ''
+    ? String(curDoc.parentId) : String(row);
+
+  // Всі документи серії (батько + дочірні без виконання)
+  var allSeries = D.filter(function(d){
+    return String(d.row) === parentRow || String(d.parentId) === parentRow;
+  });
+
+  // Наступні невиконані: цей + дочірні з датою >= поточного і без done
+  var curDeadline = curDoc ? pD(curDoc.deadline) : null;
+  var nextUndone = allSeries.filter(function(d){
+    if (d.done) return false; // пропускаємо виконані
+    if (String(d.row) === String(row)) return true; // сам поточний
+    var dl = pD(d.deadline);
+    return dl && curDeadline && dl >= curDeadline;
+  });
+
+  // Кількість для відображення
+  var totalUndone = allSeries.filter(function(d){ return !d.done; }).length;
+
+  // Якщо немає серії — просте видалення
+  if (allSeries.length <= 1) {
     if (!confirm('Видалити?')) return;
     delDocSingle(row);
+    return;
   }
+
+  // Показуємо вибір
+  var h = '<div style="margin-top:18px">' +
+    '<h2 style="font-size:1rem;font-weight:700;margin-bottom:10px">🗑 Видалення</h2>' +
+    '<p style="font-size:.82rem;color:var(--tx2);margin-bottom:12px">Оберіть що видалити:</p>' +
+    '<div style="display:flex;flex-direction:column;gap:8px">';
+
+  // Кнопка "цей і всі наступні невиконані"
+  if (nextUndone.length > 1) {
+    h += '<button class="btn btn-d" onclick="delDocFromHere(\x27' + row + '\x27,\x27' + parentRow + '\x27)" style="padding:12px;font-size:.88rem">' +
+      '🗑 Цей і всі наступні невиконані (' + nextUndone.length + ' записів)</button>';
+  }
+
+  // Кнопка "всю серію (тільки невиконані)"
+  if (totalUndone > 1) {
+    h += '<button class="btn btn-d" onclick="delDocSeries(\x27' + parentRow + '\x27,false)" style="padding:12px;font-size:.88rem;background:var(--red)">' +
+      '🗑 Всю серію — лише невиконані (' + totalUndone + ' записів)</button>';
+  }
+
+  // Кнопка "всю серію включно з виконаними"
+  h += '<button class="btn btn-d" onclick="delDocSeries(\x27' + parentRow + '\x27,true)" style="padding:12px;font-size:.88rem;background:#7f1d1d">' +
+    '🗑 Всю серію повністю (' + allSeries.length + ' записів)</button>';
+
+  // Кнопка "лише цей"
+  h += '<button class="btn btn-s" onclick="delDocSingle(\x27' + row + '\x27)" style="padding:12px;font-size:.88rem">' +
+    '🗑 Лише цей запис</button>';
+
+  h += '<button class="btn btn-s" onclick="openDet(\x27' + row + '\x27)">← Скасувати</button>' +
+    '</div></div>';
+
+  el('rpc').innerHTML = h;
+  openP();
 }
+
 
 function delDocSingle(row) {
   apiP({action:'delDoc',row:row}).then(function(r){
@@ -540,25 +601,58 @@ function delDocSingle(row) {
   }).catch(function(e){toast('❌ '+e.message);});
 }
 
-function delDocSeries(parentRow) {
-  // Знаходимо всі документи серії (батько + всі дочірні)
-  var series = D.filter(function(d){
-    return String(d.row) === String(parentRow) || String(d.parentId) === String(parentRow);
+
+/* Видаляємо цей і всі наступні невиконані */
+function delDocFromHere(row, parentRow) {
+  var curDoc = null;
+  for (var i = 0; i < D.length; i++) { if (String(D[i].row) === String(row)) { curDoc = D[i]; break; } }
+  var curDeadline = curDoc ? pD(curDoc.deadline) : null;
+
+  var allSeries = D.filter(function(d){
+    return String(d.row) === parentRow || String(d.parentId) === parentRow;
   });
-  if (!series.length) { delDocSingle(parentRow); return; }
-  toast('🗑 Видаляю ' + series.length + ' записів...');
+  var toDelete = allSeries.filter(function(d){
+    if (d.done) return false;
+    if (String(d.row) === String(row)) return true;
+    var dl = pD(d.deadline);
+    return dl && curDeadline && dl >= curDeadline;
+  });
+
+  if (!toDelete.length) { toast('⚠️ Нічого для видалення'); return; }
+  toast('🗑 Видаляю ' + toDelete.length + ' записів...');
   var idx = 0;
-  function deleteNext() {
-    if (idx >= series.length) {
-      logAction('delete_series', 'Видалено серію ' + series.length + ' записів', parentRow);
-      toast('🗑 Видалено ' + series.length + ' записів');
-      closeP(); loadData();
-      return;
+  function delNext() {
+    if (idx >= toDelete.length) {
+      logAction('delete_from_here', 'Видалено ' + toDelete.length + ' записів', parentRow);
+      toast('🗑 Видалено ' + toDelete.length + ' записів');
+      closeP(); loadData(); return;
     }
-    var r = series[idx]; idx++;
-    apiP({action:'delDoc', row:r.row}).then(function(){ deleteNext(); }).catch(function(){ deleteNext(); });
+    var r = toDelete[idx]; idx++;
+    apiP({action:'delDoc', row:r.row}).then(function(){ delNext(); }).catch(function(){ delNext(); });
   }
-  deleteNext();
+  delNext();
+}
+
+
+/* Видаляємо всю серію — withDone=true включає виконані */
+function delDocSeries(parentRow, withDone) {
+  var allSeries = D.filter(function(d){
+    return String(d.row) === parentRow || String(d.parentId) === parentRow;
+  });
+  var toDelete = withDone ? allSeries : allSeries.filter(function(d){ return !d.done; });
+  if (!toDelete.length) { delDocSingle(parentRow); return; }
+  toast('🗑 Видаляю ' + toDelete.length + ' записів...');
+  var idx = 0;
+  function delNext() {
+    if (idx >= toDelete.length) {
+      logAction('delete_series', 'Видалено серію ' + toDelete.length + ' записів', parentRow);
+      toast('🗑 Видалено ' + toDelete.length + ' записів');
+      closeP(); loadData(); return;
+    }
+    var r = toDelete[idx]; idx++;
+    apiP({action:'delDoc', row:r.row}).then(function(){ delNext(); }).catch(function(){ delNext(); });
+  }
+  delNext();
 }
 
 
@@ -716,22 +810,44 @@ function uploadPendingFiles(row, keys, idx, callback) {
 function generateControlDates(recurring, deadline, periodEnd) {
   var start = pD(deadline), end = pD(periodEnd);
   if (!start || !end) return [];
-  var dates = [], cur = new Date(start), limit = 100;
+  var dates = [], cur = new Date(start), limit = 500;
 
-  if (recurring.indexOf('Щоденно') === 0 || recurring.indexOf('Щотижня') === 0) {
+  if (recurring.indexOf('Щотижня') === 0) {
+    // Щотижня — тільки конкретні дні тижня, крок 1 день з фільтром
+    var daysMatch = recurring.match(/\(([^)]+)\)/);
+    var allowedDays = {};
+    var UA_DAYS = (typeof REC_DAYS_UA !== 'undefined' ? REC_DAYS_UA : ['Пн','Вт','Ср','Чт','Пт','Сб','Нд']);
+    if (daysMatch) {
+      daysMatch[1].split(',').forEach(function(d) {
+        d = d.trim();
+        var idx = UA_DAYS.indexOf(d);
+        if (idx >= 0) allowedDays[(idx + 1) % 7] = true;
+      });
+    } else {
+      // Якщо день не вказано — беремо день тижня стартової дати
+      allowedDays[start.getDay()] = true;
+    }
+    while (cur <= end && dates.length < limit) {
+      if (allowedDays[cur.getDay()]) {
+        dates.push(p2(cur.getDate())+'.'+p2(cur.getMonth()+1)+'.'+cur.getFullYear());
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+  } else if (recurring.indexOf('Щоденно') === 0) {
+    // Щоденно — з фільтром по днях або всі дні
     var daysMatch = recurring.match(/\(([^)]+)\)/);
     var allowedDays = null;
     if (daysMatch) {
       allowedDays = {};
+      var UA_DAYS2 = (typeof REC_DAYS_UA !== 'undefined' ? REC_DAYS_UA : ['Пн','Вт','Ср','Чт','Пт','Сб','Нд']);
       daysMatch[1].split(',').forEach(function(d) {
         d = d.trim();
-        var idx = (typeof REC_DAYS_UA !== 'undefined' ? REC_DAYS_UA : ['Пн','Вт','Ср','Чт','Пт','Сб','Нд']).indexOf(d);
-        if (idx >= 0) allowedDays[(idx + 1) % 7] = true; // JS: 0=Sun, convert
+        var idx = UA_DAYS2.indexOf(d);
+        if (idx >= 0) allowedDays[(idx + 1) % 7] = true;
       });
     }
     while (cur <= end && dates.length < limit) {
-      var jsDay = cur.getDay();
-      if (!allowedDays || allowedDays[jsDay]) {
+      if (!allowedDays || allowedDays[cur.getDay()]) {
         dates.push(p2(cur.getDate())+'.'+p2(cur.getMonth()+1)+'.'+cur.getFullYear());
       }
       cur.setDate(cur.getDate() + 1);
