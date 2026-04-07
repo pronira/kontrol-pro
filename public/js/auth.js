@@ -102,6 +102,39 @@ function logout() {
 
 function startApp() {
   el('login-screen').style.display = 'none';
+
+  // Роль grantflow — тільки GrantFlow, без Контролів
+  if (CUR_USER && CUR_USER.role === 'grantflow') {
+    // Ховаємо весь Контроль-інтерфейс
+    el('main-area').style.display = 'none';
+    var sidebar = document.querySelector('.sidebar');
+    if (sidebar) sidebar.style.display = 'none';
+    // Показуємо GrantFlow одразу
+    var gfRoot = document.getElementById('grantflowRoot');
+    if (gfRoot) {
+      gfRoot.classList.remove('hidden');
+      gfRoot.style.display = '';
+    }
+    // Ховаємо кнопку "← Повернутись до Контролів"
+    var backBtn = document.querySelector('.gf-back');
+    if (backBtn) backBtn.style.display = 'none';
+    if (CUR_USER) {
+      var ui = el('user-info'); if (ui) ui.textContent = '👤 ' + (CUR_USER.name || CUR_USER.login);
+      var lb = el('logout-btn'); if (lb) lb.style.display = '';
+    }
+    // Запускаємо GrantFlow
+    if (typeof gfBuildNav === 'function') gfBuildNav();
+    if (typeof gfBuildBNav === 'function') gfBuildBNav();
+    if (typeof gfRefresh === 'function') gfRefresh();
+    if (typeof gfStartAutoRefresh === 'function') gfStartAutoRefresh();
+    localStorage.setItem('k4_last_activity', Date.now());
+    window._ivLogout = setInterval(checkAutoLogout, 60000);
+    document.addEventListener('click', function() { localStorage.setItem('k4_last_activity', Date.now()); });
+    document.addEventListener('keydown', function() { localStorage.setItem('k4_last_activity', Date.now()); });
+    return;
+  }
+
+  // Звичайний запуск Контролів
   el('main-area').style.display = '';
   document.querySelector('.sidebar').style.display = '';
   applyPermissions();
@@ -134,8 +167,10 @@ function hasPerm(block, level) {
   // block: docs, orgs, comms, reports, settings, users, inbox, myday, calendar
   // level: read, create, edit, delete, full
   if (!CUR_USER) return false;
-  // Admin role has full access to everything
+  // Роль admin — повний доступ до всього
   if (CUR_USER.role === 'admin') return true;
+  // Роль grantflow — доступ лише до GrantFlow, без Контролів
+  if (CUR_USER.role === 'grantflow') return false;
   var p = PERMS[block];
   if (p === 'full') return true;
   if (p === 'edit' && (level === 'read' || level === 'create' || level === 'edit')) return true;
@@ -147,26 +182,17 @@ function hasPerm(block, level) {
 
 function applyPermissions() {
   // Hide tabs based on permissions
-  // docs та myday — завжди видимі для всіх авторизованих
+  // grantflow та myday та docs — завжди видимі для всіх авторизованих
   var tabMap = {main:'docs', inbox:'inbox', myday:'myday', calendar:'calendar', orgs:'orgs', comms:'comms', reports:'reports', settings:'settings', grantflow:'grantflow'};
-  var alwaysVisible = ['docs', 'myday'];
+  var alwaysVisible = ['docs', 'myday', 'grantflow'];
   document.querySelectorAll('.nav-btn[data-t]').forEach(function(btn) {
     var t = btn.getAttribute('data-t');
     var block = tabMap[t] || t;
-    if (alwaysVisible.indexOf(block) >= 0) {
-      btn.style.display = '';
-      return;
-    }
-    // Для адміна — все видиме
-    if (CUR_USER && CUR_USER.role === 'admin') {
-      btn.style.display = '';
-      return;
-    }
-    // Для решти — приховуємо якщо немає дозволу
-    if (!hasPerm(block, 'read')) {
+    btn.style.display = '';
+    if (block === 'settings' && !hasPerm('settings', 'read')) {
       btn.style.display = 'none';
-    } else {
-      btn.style.display = '';
+    } else if (alwaysVisible.indexOf(block) === -1 && !hasPerm(block, 'read')) {
+      btn.style.display = 'none';
     }
   });
 }

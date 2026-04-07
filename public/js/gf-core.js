@@ -35,27 +35,25 @@ function enterGrantFlow(){
   if(fab)fab.style.display='none';
   var gf=gfId('grantflowRoot');
   if(gf){gf.classList.remove('hidden');gf.style.display='';}
+  // Роль grantflow — ховаємо кнопку "Повернутись до Контролів"
+  if(typeof CUR_USER!=='undefined'&&CUR_USER&&CUR_USER.role==='grantflow'){
+    var backBtn=document.querySelector('.gf-back');
+    if(backBtn)backBtn.style.display='none';
+  }
   gfBuildNav(); gfBuildBNav(); gfRefresh();
   gfStartAutoRefresh();
 }
 function exitGrantFlow(){
+  // Роль grantflow — не виходимо з GrantFlow (Контролі недоступні)
+  if(typeof CUR_USER!=='undefined'&&CUR_USER&&CUR_USER.role==='grantflow') return;
   gfStopAutoRefresh();
   var gf=gfId('grantflowRoot');
   if(gf){gf.classList.add('hidden');gf.style.display='none';}
-  /* Відновлюємо всі елементи Контролів */
   var topbar=document.getElementById('topbar');if(topbar)topbar.style.display='';
-  var tbShow=document.getElementById('tb-show');if(tbShow)tbShow.style.display='';
   var sidebar=document.getElementById('sidebar');if(sidebar)sidebar.style.display='';
   var mainArea=document.getElementById('main-area');if(mainArea)mainArea.style.display='';
-  /* Відновлюємо праву панель і backdrop */
-  var rp=document.getElementById('rp');if(rp)rp.style.display='';
-  var rpBg=document.getElementById('rp-bg');if(rpBg)rpBg.style.display='';
-  var toast=document.getElementById('toast');if(toast)toast.style.display='';
-  var docOv=document.getElementById('doc-ov');if(docOv)docOv.style.display='';
   var fab=document.querySelector('button[onclick="openNewDoc()"]');
   if(fab)fab.style.display='';
-  /* Примусово скидаємо стан панелі — щоб closeP/openP знову працювали */
-  if(typeof closeP==='function') try{closeP();}catch(e){}
 }
 
 /* ── Auto-refresh кожні 30 сек ── */

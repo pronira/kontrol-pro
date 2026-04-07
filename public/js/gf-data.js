@@ -214,23 +214,13 @@ async function gfSaveDetected(d) {
   return id;
 }
 async function gfSetDetectedStatus(id, status, reason, comment) {
-  var user = (typeof CUR_USER!=='undefined'&&CUR_USER) ? CUR_USER.name : '';
-
-  // Беремо старий статус з локального кешу (без зайвого Firestore читання)
-  var oldStatus = 'Виявлено';
-  if (typeof GF !== 'undefined' && GF.data && GF.data.detected) {
-    var loc = GF.data.detected.find(function(d){ return (d._id||d.detected_id) === id; });
-    if (loc) oldStatus = loc.status || 'Виявлено';
-  }
-
-  await gfUpd(GFC.detected, id, {
+  // Зберігаємо статус — точно як оригінал, без додаткової логіки
+  // Статистика оновлюється окремо через "Перерахувати стат."
+  return gfUpd(GFC.detected, id, {
     status:status, status_reason:reason||'', status_comment:comment||'',
     status_changed_at:new Date().toISOString(),
-    status_changed_by:user
+    status_changed_by:(typeof CUR_USER!=='undefined'&&CUR_USER)?CUR_USER.name:''
   });
-
-  // Оновлюємо лічильник статистики (тихо — не блокуємо якщо помилка)
-  try { await gfUpdateStatOnChange(oldStatus, status, reason, user); } catch(e) { console.warn('stats update error:', e); }
 }
 
 /* ── Opportunities ── */
