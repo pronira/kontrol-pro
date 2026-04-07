@@ -13,6 +13,7 @@ const { XMLParser } = require('fast-xml-parser');
 
 const COL = { sources:'gf_sources', detected:'gf_detected', scanIdx:'gf_scan_index' };
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36';
+const DEFAULT_TIMEOUT = 15000;
 
 // ══════ ФІЛЬТРИ ══════
 const GRANT_WORDS = [
@@ -34,13 +35,14 @@ const BAD_TITLE = [
 ];
 
 function passesFilter(title, desc) {
-  if (!title || title.length < 12) return false;
+  if (!title || title.length < 8) return false;
   if (BAD_TITLE.some(function(re) { return re.test(title.trim()); })) return false;
   if (title.trim().split(' ').length < 2) return false;
   var hay = (title + ' ' + desc).toLowerCase();
   if (SPAM.some(function(w) { return hay.indexOf(w) >= 0; })) return false;
   if (GRANT_WORDS.some(function(w) { return hay.indexOf(w) >= 0; })) return true;
-  return true; // м'який — пропускаємо якщо з тематичного каналу
+  if ((title || '').length > 50) return true;
+  return false;
 }
 
 // ══════ ДЕДЛАЙН — ПОВНИЙ ПАРСЕР ══════
@@ -90,6 +92,14 @@ function extractDeadline(text) {
     if (m) return m[3]+'-'+(MONTHS_MAP[m[2].toLowerCase()]||'01')+'-'+m[1].padStart(2,'0');
     m = text.match(re2);
     if (m) return m[3]+'-'+(MONTHS_MAP[m[1].toLowerCase()]||'01')+'-'+m[2].padStart(2,'0');
+  }
+  // DD.MM без року — припускаємо поточний/наступний рік
+  m = ctx.match(/(?:до|by|until|deadline|дедлайн|термін)?\s*(\d{1,2})[\.\/](\d{1,2})(?![\.\/]\d)/i);
+  if (m) {
+    var y = new Date().getFullYear();
+    var iso = y + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+    if (new Date(iso) < new Date(Date.now() - 86400000 * 3)) iso = (y + 1) + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+    return iso;
   }
   return '';
 }
@@ -202,13 +212,16 @@ function classify(title, desc) {
 async function fetchDetailPage(url) {
   if (!url || url.length < 10) return null;
   try {
-    const resp = await fetch(url, { headers:{'User-Agent':UA}, timeout:10000, redirect:'follow' });
+    const resp = await fetchWithRetry(url, { headers:{'User-Agent':UA}, timeout:10000, redirect:'follow' });
     if (!resp.ok) return null;
     const html = await resp.text();
     const $ = cheerio.load(html);
     // Видаляємо скрипти, стилі, навігацію
     $('script,style,nav,header,footer,aside,.menu,.sidebar,.nav,.cookie,.popup').remove();
-    var text = $('article, .content, .post, .entry, main, .page-content, .grant-detail, .single-post').text().trim();
+    var text = '';
+    var md = $('meta[name="description"]').attr('content') || $('meta[property="og:description"]').attr('content') || '';
+    if (md) text += md + ' ';
+    text += $('article, .content, .post, .entry, main, .page-content, .grant-detail, .single-post, .news-detail, .article-body').text().trim();
     if (!text || text.length < 50) text = $('body').text().trim();
     return text.replace(/\s+/g, ' ').slice(0, 5000);
   } catch(e) { return null; }
@@ -249,6 +262,7 @@ async function scanSingle(sourceId, src, maxNew) {
   // Фільтрація
   let passed = 0;
   const good = raw.filter(function(item) {
+    if (!isFreshEnough(item.date, src.scan_window_days || '30')) return false;
     if (!passesFilter(item.title, item.description)) return false;
     passed++; return true;
   });
@@ -257,11 +271,13 @@ async function scanSingle(sourceId, src, maxNew) {
   for (const item of good) {
     if (created >= maxNew) break;
     const norm = (item.title||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,200);
-    const dUrl = (item.url||'').toLowerCase().replace(/\/+$/,'');
+    const dUrl = canonicalizeUrl(item.url||'');
+    const signature = makeSignature(norm, (item.description || '').slice(0, 160), dUrl);
     
     // Дедуп
     if (norm) { const e = await db.collection(COL.scanIdx).where('normalized_title','==',norm).limit(1).get(); if(!e.empty){dupes++;continue;} }
     if (dUrl) { const e = await db.collection(COL.scanIdx).where('canonical_url','==',dUrl).limit(1).get(); if(!e.empty){dupes++;continue;} }
+    if (signature) { const e = await db.collection(COL.scanIdx).where('signature','==',signature).limit(1).get(); if(!e.empty){dupes++;continue;} }
 
     // Класифікація з базового тексту
     var cls = classify(item.title||'', item.description||'');
@@ -295,6 +311,7 @@ async function scanSingle(sourceId, src, maxNew) {
       short_desc:(item.description||'').slice(0,500),
       full_desc: fullText ? fullText.slice(0,3000) : (item.description||''),
       found_at:new Date().toISOString(), status:'Виявлено',
+      published_at: item.date || '',
       source_type:src.source_type||'',
       donor: cls.donor || src.donor_hint || '',
       deadline: cls.deadline || '',
@@ -305,7 +322,7 @@ async function scanSingle(sourceId, src, maxNew) {
       auto_priority: cls.auto_priority || 'medium',
       has_detail_page: fullText ? 'true' : 'false'
     });
-    await db.collection(COL.scanIdx).add({ source_id:sourceId, canonical_url:dUrl, normalized_title:norm, detected_id:detId, first_seen_at:new Date().toISOString() });
+    await db.collection(COL.scanIdx).add({ source_id:sourceId, canonical_url:dUrl, normalized_title:norm, signature:signature, detected_id:detId, first_seen_at:new Date().toISOString() });
     created++;
   }
 
@@ -320,22 +337,27 @@ async function scanSingle(sourceId, src, maxNew) {
 
 // ══════ ПАРСЕРИ ══════
 async function parseRSS(url, limit) {
-  const resp = await fetch(url, {headers:{'User-Agent':UA},timeout:15000});
+  const resp = await fetchWithRetry(url, {headers:{'User-Agent':UA},timeout:DEFAULT_TIMEOUT,redirect:'follow'});
   const xml = await resp.text();
   const p = new XMLParser({ignoreAttributes:false});
   const d = p.parse(xml);
   const ch = d.rss?.channel||d.feed||{};
   const entries = ch.item||ch.entry||[];
   return (Array.isArray(entries)?entries:[entries]).slice(0,limit).map(function(e){
-    var link=e.link; if(typeof link==='object')link=link['@_href']||link['#text']||'';
+    var link=e.link;
+    if(typeof link==='object'){
+      if (Array.isArray(link)) link = (link.find(function(x){ return x['@_rel']==='alternate'; }) || link[0] || {})['@_href'] || '';
+      else link=link['@_href']||link['#text']||'';
+    }
+    link = e['feedburner:origLink'] || link || '';
     return{title:String(e.title||'').trim(),url:String(link||'').trim(),
-      description:stripHtml(e.description||e.summary||e['content:encoded']||e.content||''),
+      description:stripHtml(e.description||e.summary||e['content:encoded']||e.content||e['media:description']||''),
       date:e.pubDate||e.published||e.updated||''};
   });
 }
 
 async function parseTelegram(url, limit) {
-  const resp = await fetch(url, {headers:{'User-Agent':UA},timeout:15000});
+  const resp = await fetchWithRetry(url, {headers:{'User-Agent':UA},timeout:DEFAULT_TIMEOUT,redirect:'follow'});
   const html = await resp.text();
   const $ = cheerio.load(html);
   const items = [];
@@ -346,8 +368,10 @@ async function parseTelegram(url, limit) {
     const links=[];
     msg.find('.tgme_widget_message_text a[href]').each(function(){
       var h=$(this).attr('href')||'';
-      if(h&&!h.startsWith('tg://')&&!h.includes('t.me/'))links.push(h);
+      if(h && !h.startsWith('tg://') && !/t\.me\/(s\/)?[\w_]+\/\d+/.test(h)) links.push(h);
     });
+    var preview = msg.find('.tgme_widget_message_link_preview').attr('href') || '';
+    if (preview) links.unshift(preview);
     const date=msg.find('.tgme_widget_message_date time').attr('datetime')||'';
     if(text&&text.length>30) items.push({title:text.slice(0,200),description:text,url:links[0]||'',date:date});
   });
@@ -355,10 +379,64 @@ async function parseTelegram(url, limit) {
 }
 
 async function parsePageLinks(url, limit, src) {
-  const resp = await fetch(url, {headers:{'User-Agent':UA},timeout:15000});
+  const resp = await fetchWithRetry(url, {headers:{'User-Agent':UA},timeout:DEFAULT_TIMEOUT,redirect:'follow'});
   const html = await resp.text();
   const $ = cheerio.load(html);
   const items = [];
+  const seen = new Set();
+  const includeKw = splitCsv(src.link_include).map(function(s){ return s.toLowerCase(); });
+  const excludeKw = splitCsv(src.link_exclude).map(function(s){ return s.toLowerCase(); });
+
+  function pushItem(obj) {
+    if (items.length >= limit) return;
+    var title = String(obj.title || '').trim().replace(/\s+/g, ' ');
+    var desc = String(obj.description || '').trim().replace(/\s+/g, ' ');
+    if (!title || title.length < 8) return;
+    var cUrl = canonicalizeUrl(obj.url || '');
+    var hay = (title + ' ' + desc + ' ' + cUrl).toLowerCase();
+    if (includeKw.length && !includeKw.some(function(w){ return hay.indexOf(w) >= 0; })) return;
+    if (excludeKw.some(function(w){ return hay.indexOf(w) >= 0; })) return;
+    var key = (title.toLowerCase().slice(0, 180) + '|' + cUrl);
+    if (seen.has(key)) return;
+    seen.add(key);
+    items.push({ title:title, url:cUrl || obj.url || '', description:desc.slice(0, 1000), date:obj.date || '' });
+  }
+
+  // JSON-LD статті / новини
+  $('script[type="application/ld+json"]').each(function() {
+    if (items.length >= limit) return false;
+    var raw = ($(this).html() || '').trim();
+    if (!raw) return;
+    try {
+      var parsed = JSON.parse(raw);
+      var arr = Array.isArray(parsed) ? parsed : [parsed];
+      arr.forEach(function(node) {
+        if (!node) return;
+        if (node['@graph'] && Array.isArray(node['@graph'])) {
+          node['@graph'].forEach(function(g) { extractLdNode(g, pushItem); });
+        } else {
+          extractLdNode(node, pushItem);
+        }
+      });
+    } catch (e) {}
+  });
+
+  // Блочний парсинг (новини/картки)
+  $('article, .post, .news-item, .entry, .card, li, .item').each(function() {
+    if (items.length >= limit) return false;
+    var root = $(this);
+    var a = root.find('a[href]').first();
+    var href = a.attr('href') || '';
+    var title = root.find('h1,h2,h3,h4,.title,.post-title,.entry-title').first().text().trim() || a.text().trim();
+    var desc = root.find('p,.excerpt,.summary,.description').first().text().trim();
+    var date = root.find('time').attr('datetime') || root.find('time').text().trim();
+    if (!href || !title) return;
+    var fullUrl = '';
+    try { fullUrl = href.startsWith('http') ? href : new URL(href, url).toString(); } catch (e) { return; }
+    pushItem({ title:title, url:fullUrl, description:desc, date:date });
+  });
+
+  // Fallback: всі лінки
   $('a[href]').each(function(){
     if(items.length>=limit)return false;
     const href=$(this).attr('href')||'';
@@ -367,9 +445,70 @@ async function parsePageLinks(url, limit, src) {
     let fullUrl;
     try{fullUrl=href.startsWith('http')?href:new URL(href,url).toString();}catch(e){return;}
     if(fullUrl===url||href.startsWith('#')||href.startsWith('javascript')||href.startsWith('mailto:'))return;
-    items.push({title:text,url:fullUrl,description:''});
+    pushItem({title:text,url:fullUrl,description:''});
   });
   return items;
 }
 
 function stripHtml(h){return String(h||'').replace(/<[^>]*>/g,' ').replace(/&\w+;/g,' ').replace(/\s+/g,' ').trim().slice(0,3000);}
+function splitCsv(s){return String(s||'').split(',').map(function(x){return x.trim();}).filter(Boolean);}
+function canonicalizeUrl(u){
+  try{
+    if(!u)return '';
+    var x=new URL(u);
+    x.hash='';
+    ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','fbclid','gclid'].forEach(function(p){x.searchParams.delete(p);});
+    x.pathname=x.pathname.replace(/\/+$/,'');
+    return x.toString();
+  }catch(e){return String(u||'').trim().toLowerCase().replace(/\/+$/,'');}
+}
+function makeSignature(normTitle, shortDesc, dUrl){
+  var base = (normTitle || '') + '|' + String(shortDesc || '').toLowerCase().replace(/\s+/g, ' ').slice(0, 120) + '|' + (dUrl || '');
+  return base.slice(0, 380);
+}
+function toDateSafe(v){
+  if(!v)return null;
+  var d=new Date(v);
+  if(!isNaN(d.getTime())) return d;
+  var m=String(v).match(/(\d{1,2})[\.\/](\d{1,2})[\.\/](20\d{2})/);
+  if(m){
+    var iso=m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+    d=new Date(iso);
+    if(!isNaN(d.getTime())) return d;
+  }
+  return null;
+}
+function isFreshEnough(dateValue, windowDays){
+  var d = toDateSafe(dateValue);
+  if(!d) return true;
+  var days = Math.max(1, parseInt(windowDays || '30') || 30);
+  var diff = (Date.now() - d.getTime()) / 86400000;
+  return diff <= days;
+}
+function extractLdNode(node, pushItem){
+  if(!node || typeof node !== 'object') return;
+  var t = Array.isArray(node['@type']) ? node['@type'].join(',') : String(node['@type'] || '');
+  if (!/Article|News|Blog|Posting|Event|CreativeWork/i.test(t)) return;
+  var title = node.headline || node.name || '';
+  var url = node.url || node.mainEntityOfPage || '';
+  var desc = node.description || '';
+  var date = node.datePublished || node.dateModified || '';
+  if (typeof url === 'object') url = url['@id'] || '';
+  pushItem({ title:title, url:url, description:desc, date:date });
+}
+async function fetchWithRetry(url, options){
+  options = options || {};
+  var attempts = [0, 1];
+  var lastErr = null;
+  for (var i = 0; i < attempts.length; i++) {
+    try {
+      var resp = await fetch(url, options);
+      if (resp.ok || resp.status < 500) return resp;
+      lastErr = new Error('HTTP ' + resp.status);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  if (lastErr) throw lastErr;
+  throw new Error('Failed to fetch');
+}
