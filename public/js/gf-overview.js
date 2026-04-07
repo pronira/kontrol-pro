@@ -21,9 +21,20 @@ function gfViewOverview(){
     {l:'Пріоритетних',v:o.highPriority,c:'g',bg:'var(--green)'},
     {l:'Всього знайдено',v:o.detectedCount,c:'',bg:'var(--accent)'}
   ];
+  // Карти статистики — кліком переходимо до відповідного списку
+  var statViews={
+    'Нових сьогодні':'new','Очікують перегляду':'new','У базі':'base',
+    'Відхилено':'rejected','На погодженні':'review','Пріоритетних':'new'
+  };
   var mh='<div class="gf-stats">';
   m.forEach(function(x){
-    mh+='<div class="gf-stat"><div class="gf-stat-lbl">'+gfE(x.l)+'</div>'
+    var view=statViews[x.l]||'all';
+    var clickable=statViews[x.l]?'cursor:pointer;' : '';
+    var onclick=statViews[x.l]
+      ?'onclick="GF.detectedView=\''+view+'\';gfGo(\'detected\')" title="Перейти до списку"'
+      :'';
+    mh+='<div class="gf-stat" style="'+clickable+'" '+onclick+'>'
+      +'<div class="gf-stat-lbl">'+gfE(x.l)+'</div>'
       +'<div class="gf-stat-val'+(x.c?' '+x.c:'')+'">'+(x.v||0)+'</div></div>';
   });
   mh+='</div>';
@@ -58,11 +69,16 @@ function gfUpcomingDeadlinesPanel(det){
   upcoming.forEach(function(d){
     var days=gfDaysLeft(d.deadline);
     var urgency=days<=3?'border-left:4px solid var(--red)':days<=7?'border-left:4px solid var(--yellow)':'border-left:4px solid var(--accent)';
-    h+='<div class="gf-item" style="padding:10px 14px;'+urgency+'"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
+    var did2=d._id||d.detected_id||'';
+    h+='<div class="gf-item" style="padding:10px 14px;'+urgency+';cursor:pointer" onclick="gfGo(\'detected\')">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
       +'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+gfE((d.raw_title||'').slice(0,60))+'</div>'
       +'<div class="gf-muted" style="font-size:11px">'+gfE(d.donor||d.source_name||'')+'</div></div>'
+      +'<div style="display:flex;gap:4px;align-items:center">'
       +gfDeadlineBadge(d.deadline)
-      +'</div></div>';
+      +(did2?'<button class="gf-btn sm g" onclick="event.stopPropagation();gfOpenStatusModal(\''+did2+'\',\'Корисне\')" title="Корисне">✓</button>'
+            +'<button class="gf-btn sm r" onclick="event.stopPropagation();gfOpenStatusModal(\''+did2+'\',\'Не підходить\')" title="Не підходить">✕</button>':'')
+      +'</div></div></div>';
   });
   return h+'</div></div>';
 }

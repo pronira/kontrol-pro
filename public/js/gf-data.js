@@ -131,7 +131,14 @@ async function gfUpdateStatOnChange(oldStatus, newStatus, reason, user) {
 
   inc['updatedAt'] = new Date().toISOString();
   if (Object.keys(inc).length > 1) {
-    await gfSet(GFC.settings, GF_STATS_ID, inc);
+    // update() правильно обробляє dot-notation ('a.b') для вкладених полів
+    // set({merge:true}) НЕ обробляє dot-notation — створює буквальний ключ "a.b"
+    try {
+      await db.collection(GFC.settings).doc(GF_STATS_ID).update(inc);
+    } catch(e) {
+      // Якщо документ не існує — створюємо його
+      await db.collection(GFC.settings).doc(GF_STATS_ID).set(inc, {merge:true});
+    }
   }
 }
 
@@ -207,10 +214,14 @@ async function gfSaveDetected(d) {
   return id;
 }
 async function gfSetDetectedStatus(id, status, reason, comment) {
-  // Читаємо старий статус для оновлення лічильника
   var user = (typeof CUR_USER!=='undefined'&&CUR_USER) ? CUR_USER.name : '';
-  var oldDoc = await gfDoc(GFC.detected, id);
-  var oldStatus = oldDoc ? (oldDoc.status || 'Виявлено') : 'Виявлено';
+
+  // Беремо старий статус з локального кешу (без зайвого Firestore читання)
+  var oldStatus = 'Виявлено';
+  if (typeof GF !== 'undefined' && GF.data && GF.data.detected) {
+    var loc = GF.data.detected.find(function(d){ return (d._id||d.detected_id) === id; });
+    if (loc) oldStatus = loc.status || 'Виявлено';
+  }
 
   await gfUpd(GFC.detected, id, {
     status:status, status_reason:reason||'', status_comment:comment||'',
@@ -218,7 +229,7 @@ async function gfSetDetectedStatus(id, status, reason, comment) {
     status_changed_by:user
   });
 
-  // Оновлюємо лічильник статистики
+  // Оновлюємо лічильник статистики (тихо — не блокуємо якщо помилка)
   try { await gfUpdateStatOnChange(oldStatus, status, reason, user); } catch(e) { console.warn('stats update error:', e); }
 }
 
