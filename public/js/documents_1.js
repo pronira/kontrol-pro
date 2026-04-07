@@ -179,167 +179,70 @@ function doFinalSave(payload) {
   apiP(payload).then(function(r) {
     if (r.ok || r.row) {
       var savedRow = r.row || payload.row;
-      var isNew = !payload.row;
-      var isRecurring = payload.recurring && payload.recurring !== 'Ні';
-      logAction(isNew ? 'create' : 'edit', (payload.type||'') + ': ' + (payload.name||'').substring(0,40), savedRow);
+      logAction(payload.row ? 'edit' : 'create', (payload.type||'') + ': ' + (payload.name||'').substring(0,40), savedRow);
       var pf = window._pendingFiles || {};
       var fileKeys = Object.keys(pf);
-
-      function afterFilesUploaded() {
-        if (!isRecurring || !savedRow) {
-          toast('✅ Збережено'); closeP(); loadData();
-          return;
-        }
-        if (isNew) {
-          // Новий повторюваний — створюємо всі дочірні
-          createRecurringChildren(savedRow, payload, function() {
-            toast('✅ Збережено'); closeP(); loadData();
-          });
-        } else {
-          // Редагування — перевіряємо чи є вже дочірні
-          syncRecurringChildren(savedRow, payload, function() {
-            toast('✅ Збережено'); closeP(); loadData();
-          });
-        }
-      }
-
       if (fileKeys.length > 0 && savedRow) {
         uploadPendingFiles(savedRow, fileKeys, 0, function() {
           window._pendingFiles = {};
-          afterFilesUploaded();
+          toast('✅ Збережено!'); closeP(); loadData();
         });
       } else {
-        afterFilesUploaded();
+        toast('✅ Збережено'); closeP(); loadData();
       }
     } else toast('❌ ' + (r.error || ''));
   }).catch(function(e) { toast('❌ ' + e.message); });
 }
 
 
-/* ─── RECURRING CHILDREN CREATOR ─── */
-function createRecurringChildren(parentRow, payload, callback) {
-  // Генеруємо всі дати повторення
-  var dates = generateControlDates(payload.recurring, payload.deadline, payload.periodEnd);
-  // Перша дата = сам батьківський документ (вже збережений)
-  // Дочірні = всі дати КРІМ першої
-  var childDates = dates.slice(1);
-  if (!childDates.length) { callback(); return; }
+function confirmAndPrint() {
+  /* Зберігаємо документ і після збереження відкриваємо резолюцію */
+  var payload = window._pendingPayload;
+  if (!payload) return;
 
-  toast('📅 Створюю ' + childDates.length + ' повторень...');
-
-  // Зберігаємо базові дані для дочірніх (без зайвих полів)
-  var baseData = {
-    type: payload.type,
-    inNum: payload.inNum,
-    docDate: payload.docDate,
-    from: payload.from,
-    name: payload.name,
-    desc: payload.desc,
-    recurring: 'Ні', // дочірні не повторюються самі по собі
-    periodEnd: '',
-    executor: payload.executor,
-    reportTo: payload.reportTo,
-    email: payload.email,
-    reminder: payload.reminder,
-    docLink: payload.docLink,
-    sampleResp: payload.sampleResp,
-    extraDates: '',
-    files: payload.files || '',
-    notes: payload.notes,
-    tags: payload.tags,
-    parentId: parentRow // посилання на батька
-  };
-
-  var done = 0;
-  var total = childDates.length;
-
-  childDates.forEach(function(dateStr) {
-    var childPayload = {};
-    for (var k in baseData) childPayload[k] = baseData[k];
-    childPayload.action = 'addDoc';
-    childPayload.deadline = dateStr;
-    apiP(childPayload).then(function() {
-      done++;
-      if (done === total) {
-        logAction('create_recurring', payload.recurring + ': ' + total + ' дат', parentRow);
-        callback();
-      }
-    }).catch(function() {
-      done++;
-      if (done === total) callback();
-    });
-  });
-}
-
-
-/* ─── SYNC RECURRING CHILDREN (при редагуванні) ─── */
-function syncRecurringChildren(parentRow, payload, callback) {
-  // Знаходимо вже існуючих дочірніх в пам'яті (D = масив всіх документів)
-  var existingChildren = D.filter(function(d) {
-    return String(d.parentId) === String(parentRow) && String(d.row) !== String(parentRow);
-  });
-
-  // Генеруємо потрібні дати (без першої — вона батько)
-  var allDates = generateControlDates(payload.recurring, payload.deadline, payload.periodEnd);
-  var childDates = allDates.slice(1);
-
-  if (!existingChildren.length && !childDates.length) {
-    // Ні дочірніх ні дат — нічого не робимо
-    callback();
-    return;
+  var pendingInc = window._pendingIncoming || [];
+  function doSaveAndPrint(pl) {
+    toast('💾 Зберігаю...');
+    apiP(pl).then(function(r) {
+      if (r.ok || r.row) {
+        var savedRow = r.row || pl.row;
+        try { if (typeof logAction === 'function') logAction(pl.row ? 'edit' : 'create', (pl.type||'') + ': ' + (pl.name||'').substring(0,40), savedRow); } catch(le){}
+        var pf = window._pendingFiles || {};
+        var fileKeys = Object.keys(pf);
+        function afterFiles() {
+          window._pendingFiles = {};
+          toast('✅ Збережено');
+          closeP();
+          loadData();
+          /* Відкриваємо резолюцію після завантаження даних */
+          setTimeout(function() {
+            if (typeof printResolution === 'function' && savedRow) {
+              printResolution(savedRow);
+            }
+          }, 800);
+        }
+        if (fileKeys.length > 0 && savedRow) {
+          uploadPendingFiles(savedRow, fileKeys, 0, afterFiles);
+        } else {
+          afterFiles();
+        }
+      } else toast('❌ ' + (r.error || ''));
+    }).catch(function(e) { toast('❌ ' + e.message); });
   }
 
-  if (!existingChildren.length) {
-    // Дочірніх немає — створюємо всі
-    toast('📅 Створюю ' + childDates.length + ' повторень...');
-    createRecurringChildren(parentRow, payload, callback);
-    return;
-  }
-
-  // Дочірні є — оновлюємо спільні поля (виконавець, звітувати, email, тип тощо)
-  // Дати не чіпаємо — вони вже встановлені
-  var updateData = {
-    action: 'editDoc',
-    type: payload.type,
-    from: payload.from,
-    name: payload.name,
-    desc: payload.desc,
-    executor: payload.executor,
-    reportTo: payload.reportTo,
-    email: payload.email,
-    reminder: payload.reminder,
-    sampleResp: payload.sampleResp,
-    notes: payload.notes,
-    tags: payload.tags
-  };
-
-  toast('📅 Оновлюю ' + existingChildren.length + ' повторень...');
-  var done = 0;
-  var total = existingChildren.length;
-
-  existingChildren.forEach(function(child) {
-    // Не чіпаємо виконані дочірні
-    if (child.done) { done++; if (done === total) callback(); return; }
-    var upd = {};
-    for (var k in updateData) upd[k] = updateData[k];
-    upd.row = child.row;
-    // Зберігаємо дедлайн дочірнього — не змінюємо
-    upd.deadline = child.deadline;
-    upd.inNum = payload.inNum;
-    upd.docDate = payload.docDate;
-    apiP(upd).then(function() {
-      done++;
-      if (done === total) {
-        logAction('sync_recurring', 'Оновлено ' + total + ' повторень', parentRow);
-        callback();
-      }
-    }).catch(function() {
-      done++;
-      if (done === total) callback();
+  if (pendingInc.length > 0) {
+    toast('📤 Завантажую вхідні файли...');
+    uploadIncomingSeq(pendingInc, 0, [], function(urls) {
+      var existing = payload.docLink ? payload.docLink.split(';').filter(function(s){return s.trim()&&s.indexOf('📤')<0}) : [];
+      payload.docLink = existing.concat(urls).join(';');
+      window._pendingIncoming = [];
+      doSaveAndPrint(payload);
     });
-  });
+  } else {
+    if (payload.docLink) payload.docLink = payload.docLink.split(';').filter(function(s){return s.trim()&&s.indexOf('📤')<0}).join(';');
+    doSaveAndPrint(payload);
+  }
 }
-
 
 function backToEdit() {
   // Re-open the form — crude but effective
