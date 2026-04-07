@@ -250,25 +250,33 @@ function createRecurringChildren(parentRow, payload, callback) {
     parentId: parentRow // посилання на батька
   };
 
-  var done = 0;
   var total = childDates.length;
+  var idx = 0;
 
-  childDates.forEach(function(dateStr) {
+  function saveNext() {
+    if (idx >= total) {
+      logAction('create_recurring', payload.recurring + ': ' + total + ' дат', parentRow);
+      callback();
+      return;
+    }
     var childPayload = {};
     for (var k in baseData) childPayload[k] = baseData[k];
     childPayload.action = 'addDoc';
-    childPayload.deadline = dateStr;
+    childPayload.deadline = childDates[idx];
+    idx++;
+    // Показуємо прогрес кожні 10
+    if (idx % 10 === 1 || idx === total) {
+      toast('📅 Зберігаю ' + idx + ' / ' + total + '...');
+    }
     apiP(childPayload).then(function() {
-      done++;
-      if (done === total) {
-        logAction('create_recurring', payload.recurring + ': ' + total + ' дат', parentRow);
-        callback();
-      }
-    }).catch(function() {
-      done++;
-      if (done === total) callback();
+      saveNext();
+    }).catch(function(e) {
+      console.warn('Recurring child save error:', e);
+      saveNext(); // продовжуємо навіть при помилці
     });
-  });
+  }
+
+  saveNext();
 }
 
 
@@ -317,27 +325,39 @@ function syncRecurringChildren(parentRow, payload, callback) {
   var done = 0;
   var total = existingChildren.length;
 
-  existingChildren.forEach(function(child) {
-    // Не чіпаємо виконані дочірні
-    if (child.done) { done++; if (done === total) callback(); return; }
+  var syncIdx = 0;
+  // Фільтруємо невиконані
+  var toUpdate = existingChildren.filter(function(c) { return !c.done; });
+  var syncTotal = toUpdate.length;
+
+  if (!syncTotal) { callback(); return; }
+
+  function syncNext() {
+    if (syncIdx >= syncTotal) {
+      logAction('sync_recurring', 'Оновлено ' + syncTotal + ' повторень', parentRow);
+      callback();
+      return;
+    }
+    var child = toUpdate[syncIdx];
+    syncIdx++;
+    if (syncIdx % 10 === 1 || syncIdx === syncTotal) {
+      toast('📅 Оновлюю ' + syncIdx + ' / ' + syncTotal + '...');
+    }
     var upd = {};
     for (var k in updateData) upd[k] = updateData[k];
     upd.row = child.row;
-    // Зберігаємо дедлайн дочірнього — не змінюємо
-    upd.deadline = child.deadline;
+    upd.deadline = child.deadline; // не змінюємо дату дочірнього
     upd.inNum = payload.inNum;
     upd.docDate = payload.docDate;
     apiP(upd).then(function() {
-      done++;
-      if (done === total) {
-        logAction('sync_recurring', 'Оновлено ' + total + ' повторень', parentRow);
-        callback();
-      }
-    }).catch(function() {
-      done++;
-      if (done === total) callback();
+      syncNext();
+    }).catch(function(e) {
+      console.warn('Sync child error:', e);
+      syncNext();
     });
-  });
+  }
+
+  syncNext();
 }
 
 
@@ -487,21 +507,71 @@ function openMkD(row) {
 
 
 function delDoc(row) {
-  if (hasPerm('docs', 'full')) {
-    if (!confirm('Видалити?')) return;
-    apiP({action:'delDoc',row:row}).then(function(r){if(r.ok){toast('🗑');logAction('delete','Видалено документ',row);closeP();loadData()}else toast('❌')}).catch(function(e){toast('❌ '+e.message)});
-  } else {
+  if (!hasPerm('docs', 'full')) {
     if (!confirm('Надіслати запит адміністратору на видалення?')) return;
     apiP({action:'requestDelete',row:row,user:CUR_USER?CUR_USER.login:''}).then(function(r){
       if(r.ok){toast('📨 Запит надіслано адміністратору');logAction('requestDelete','Запит на видалення',row);closeP()}else toast('❌ '+(r.error||''));
     }).catch(function(e){toast('❌ '+e.message)});
+    return;
   }
+  // Перевіряємо чи є дочірні документи
+  var children = D.filter(function(d){ return String(d.parentId) === String(row) && String(d.row) !== String(row); });
+  if (children.length > 0) {
+    // Є дочірні — показуємо вибір
+    el('rpc').innerHTML = '<div style="margin-top:18px"><h2 style="font-size:1rem;font-weight:700;margin-bottom:10px">🗑 Видалення</h2>' +
+      '<p style="font-size:.82rem;color:var(--tx2);margin-bottom:14px">Цей документ має <b>' + children.length + '</b> повторень. Що видалити?</p>' +
+      '<div style="display:flex;flex-direction:column;gap:8px">' +
+      '<button class="btn btn-d" onclick="delDocSeries(\x27' + row + '\x27)" style="padding:12px;font-size:.88rem">🗑 Видалити всю серію (' + (children.length+1) + ' записів)</button>' +
+      '<button class="btn btn-s" onclick="delDocSingle(\x27' + row + '\x27)" style="padding:12px;font-size:.88rem">🗑 Видалити лише цей запис</button>' +
+      '<button class="btn btn-s" onclick="openDet(\x27' + row + '\x27)">← Скасувати</button>' +
+      '</div></div>';
+    openP();
+  } else {
+    // Немає дочірніх — звичайне видалення
+    if (!confirm('Видалити?')) return;
+    delDocSingle(row);
+  }
+}
+
+function delDocSingle(row) {
+  apiP({action:'delDoc',row:row}).then(function(r){
+    if(r.ok){toast('🗑 Видалено');logAction('delete','Видалено документ',row);closeP();loadData();}
+    else toast('❌ '+(r.error||''));
+  }).catch(function(e){toast('❌ '+e.message);});
+}
+
+function delDocSeries(parentRow) {
+  // Знаходимо всі документи серії (батько + всі дочірні)
+  var series = D.filter(function(d){
+    return String(d.row) === String(parentRow) || String(d.parentId) === String(parentRow);
+  });
+  if (!series.length) { delDocSingle(parentRow); return; }
+  toast('🗑 Видаляю ' + series.length + ' записів...');
+  var idx = 0;
+  function deleteNext() {
+    if (idx >= series.length) {
+      logAction('delete_series', 'Видалено серію ' + series.length + ' записів', parentRow);
+      toast('🗑 Видалено ' + series.length + ' записів');
+      closeP(); loadData();
+      return;
+    }
+    var r = series[idx]; idx++;
+    apiP({action:'delDoc', row:r.row}).then(function(){ deleteNext(); }).catch(function(){ deleteNext(); });
+  }
+  deleteNext();
 }
 
 
 /* ─── CANCEL / SUSPEND DOC ─── */
 function openCancelDoc(row) {
+  var children = D.filter(function(d){ return String(d.parentId) === String(row) && String(d.row) !== String(row) && !d.done; });
+  var cntAll = children.length + 1;
+  var seriesBtn = children.length > 0
+    ? '<button class="btn btn-s btn-sm" id="cn-series-btn" style="font-size:.72rem;margin-bottom:8px;width:100%" onclick="cancelSeriesMode(this,' + children.length + ')">🔄 Застосувати до всієї серії (' + cntAll + ' записів)</button>'
+    : '';
   el('rpc').innerHTML = '<div style="margin-top:18px"><h2 style="font-size:1rem;font-weight:700;margin-bottom:10px">🚫 Скасування / Припинення</h2>' +
+    seriesBtn +
+    '<input type="hidden" id="cn-series" value="0">' +
     '<div class="fg"><label>Причина</label><select id="cn-reason">' +
     '<option>Скасовано</option>' +
     '<option>Припинено виконання</option>' +
@@ -513,16 +583,51 @@ function openCancelDoc(row) {
   openP();
 }
 
+function cancelSeriesMode(btn, count) {
+  var inp = el('cn-series');
+  var isOn = inp.value === '1';
+  inp.value = isOn ? '0' : '1';
+  btn.style.background = isOn ? '' : 'var(--orn)';
+  btn.style.color = isOn ? '' : '#fff';
+  btn.textContent = isOn
+    ? '🔄 Застосувати до всієї серії (' + (count+1) + ' записів)'
+    : '✅ Буде скасовано всю серію (' + (count+1) + ' записів)';
+}
+
 
 function doCancelDoc(row) {
   var reason = el('cn-reason') ? el('cn-reason').value : 'Скасовано';
   var detail = el('cn-detail') ? el('cn-detail').value.trim() : '';
   var link = el('cn-link') ? el('cn-link').value.trim() : '';
   var doneText = reason + (detail ? ': ' + detail : '') + (link ? ' [' + link + ']' : '');
-  toast('💾...');
-  apiP({action:'markDone', row:row, doneText:doneText, doneDate:isoT().split('-').reverse().join('.')}).then(function(r) {
-    if (r.ok) { toast('🚫 ' + reason); closeP(); loadData(); } else toast('❌ ' + (r.error||''));
-  }).catch(function(e) { toast('❌ ' + e.message); });
+  var isSeries = el('cn-series') && el('cn-series').value === '1';
+
+  if (isSeries) {
+    // Скасовуємо всю серію послідовно
+    var series = D.filter(function(d){
+      return (String(d.row) === String(row) || String(d.parentId) === String(row)) && !d.done;
+    });
+    toast('🚫 Скасовую ' + series.length + ' записів...');
+    var idx = 0;
+    var today = isoT().split('-').reverse().join('.');
+    function cancelNext() {
+      if (idx >= series.length) {
+        logAction('cancel_series', doneText + ' (' + series.length + ' записів)', row);
+        toast('🚫 Скасовано ' + series.length + ' записів');
+        closeP(); loadData();
+        return;
+      }
+      var r = series[idx]; idx++;
+      apiP({action:'markDone', row:r.row, doneText:doneText, doneDate:today}).then(function(){ cancelNext(); }).catch(function(){ cancelNext(); });
+    }
+    cancelNext();
+  } else {
+    // Скасовуємо лише один запис
+    toast('💾...');
+    apiP({action:'markDone', row:row, doneText:doneText, doneDate:isoT().split('-').reverse().join('.')}).then(function(r) {
+      if (r.ok) { toast('🚫 ' + reason); closeP(); loadData(); } else toast('❌ ' + (r.error||''));
+    }).catch(function(e) { toast('❌ ' + e.message); });
+  }
 }
 
 
