@@ -19,8 +19,8 @@
 /* ── Каталог перевірених джерел ── */
 var GF_CATALOG = [
   /* Сайти-агрегатори */
-  {cat:'Сайти-агрегатори',id:'gurt_rss',name:'ГУРТ',url:'https://gurt.org.ua/news/grants/',type:'page',parser:'page_links',ico:'🌐',priority:'high',window_days:'30',topics:'Гранти, Можливості'},
-  {cat:'Сайти-агрегатори',id:'prostir_feed',name:'Громадський Простір',url:'https://www.prostir.ua/category/grants/',type:'page',parser:'page_links',ico:'🌐',priority:'high',window_days:'30',topics:'Гранти, Конкурси'},
+  {cat:'Сайти-агрегатори',id:'gurt_rss',name:'ГУРТ (RSS)',url:'https://gurt.org.ua/grants/feed/',type:'rss',parser:'rss',ico:'🌐'},
+  {cat:'Сайти-агрегатори',id:'prostir_feed',name:'Prostir (RSS)',url:'https://prostir.ua/grants/feed/',type:'rss',parser:'rss',ico:'🌐'},
   {cat:'Сайти-агрегатори',id:'getgrant_page',name:'GetGrant',url:'https://getgrant.com.ua/grants/',type:'page',parser:'page_links',ico:'🌐'},
   {cat:'Сайти-агрегатори',id:'grant_market',name:'Grant.Market',url:'https://grant.market/grants',type:'page',parser:'page_links',ico:'🌐'},
   {cat:'Сайти-агрегатори',id:'granty_org_ua',name:'Granty.org.ua',url:'https://granty.org.ua/',type:'page',parser:'page_links',ico:'🌐'},
@@ -44,15 +44,13 @@ var GF_CATALOG = [
   {cat:'Telegram канали',id:'tg_giz_ukraine',name:'GIZ Ukraine',url:'https://t.me/s/giz_ukraine',type:'telegram',parser:'telegram',ico:'📱'},
   {cat:'Telegram канали',id:'tg_grantmanagement',name:'Grant Management',url:'https://t.me/s/grantmanagement',type:'telegram',parser:'telegram',ico:'📱'},
   /* Міжнародні донори */
-  {cat:'Міжнародні донори',id:'undp_ukraine',name:'UNDP Ukraine',url:'https://www.undp.org/ukraine/news',type:'page',parser:'page_links',ico:'🏛'},
+  {cat:'Міжнародні донори',id:'undp_ukraine',name:'UNDP Ukraine',url:'https://www.undp.org/ukraine/grants',type:'page',parser:'page_links',ico:'🏛'},
   {cat:'Міжнародні донори',id:'house_of_europe',name:'House of Europe',url:'https://houseofeurope.org.ua/opportunities',type:'page',parser:'page_links',ico:'🏛'},
-  {cat:'Міжнародні донори',id:'eef_grants',name:'Фонд Сх. Європа',url:'https://eef.org.ua/konkursy-grantiv/',type:'page',parser:'page_links',ico:'🏛'},
-  {cat:'Міжнародні донори',id:'ednannia_grants',name:'ІСАР Єднання',url:'https://ednannia.ua/en/news',type:'page',parser:'page_links',ico:'🏛'},
+  {cat:'Міжнародні донори',id:'eef_grants',name:'Фонд Сх. Європа',url:'https://eef.org.ua/programs/',type:'page',parser:'page_links',ico:'🏛'},
+  {cat:'Міжнародні донори',id:'ednannia_grants',name:'ІСАР Єднання',url:'https://ednannia.ua/grants',type:'page',parser:'page_links',ico:'🏛'},
   {cat:'Міжнародні донори',id:'diia_business',name:'Дія.Бізнес',url:'https://business.diia.gov.ua/cases/grant',type:'page',parser:'page_links',ico:'🏛'},
   {cat:'Міжнародні донори',id:'irex_ukraine',name:'IREX Ukraine',url:'https://www.irex.org/ukraine',type:'page',parser:'page_links',ico:'🏛'},
   {cat:'Міжнародні донори',id:'opensociety_ua',name:'Open Society (МФВ)',url:'https://www.irf.ua/grants/',type:'page',parser:'page_links',ico:'🏛'},
-  {cat:'Міжнародні донори',id:'irf_contests',name:'МФВ — конкурси та гранти',url:'https://www.irf.ua/grants/contests/',type:'page',parser:'page_links',ico:'🏛',priority:'high',window_days:'30',topics:'Громади, Відновлення',keywords:'грант,гранти,конкурс,відновлення,громада,можливість,підтримка'},
-  {cat:'Міжнародні донори',id:'british_council_ua',name:'British Council Україна',url:'https://www.britishcouncil.org.ua/programmes',type:'page',parser:'page_links',ico:'🏛',priority:'medium',window_days:'30',topics:'Освіта, Культура',keywords:'грант,гранти,конкурс,можливість,підтримка,резиденція,call,applications'},
   /* Google News RSS */
   {cat:'Google News',id:'google_news_grants_ua',name:'Гранти Україна',url:'https://news.google.com/rss/search?q=гранти+Україна&hl=uk&gl=UA&ceid=UA:uk',type:'rss',parser:'google_news_rss',ico:'📰'},
   {cat:'Google News',id:'google_news_grants_hromady',name:'Гранти громади',url:'https://news.google.com/rss/search?q=гранти+для+громад&hl=uk&gl=UA&ceid=UA:uk',type:'rss',parser:'google_news_rss',ico:'📰'},
@@ -63,66 +61,9 @@ var GF_CATALOG = [
   {cat:'Міжнародні RSS',id:'reliefweb_ukraine',name:'ReliefWeb UA',url:'https://reliefweb.int/updates/rss?country=254',type:'rss',parser:'rss',ico:'🌍'},
   {cat:'Міжнародні RSS',id:'reliefweb_funding',name:'ReliefWeb Funding',url:'https://reliefweb.int/jobs/rss?country=254&type=2',type:'rss',parser:'rss',ico:'🌍'},
   /* Додаткові */
-  {cat:'Додаткові',id:'ucf_news',name:'УКФ (Укр. культурний фонд)',url:'https://ucf.in.ua/en/news',type:'page',parser:'page_links',ico:'🎭'},
-  {cat:'Додаткові',id:'grant_av',name:'Грант АВ',url:'https://grant.av.ua/',type:'page',parser:'page_links',ico:'🌐'},
-  {cat:'Додаткові',id:'eef_competitions',name:'Фонд Сх. Європа — конкурси',url:'https://eef.org.ua/konkursy-grantiv/',type:'page',parser:'page_links',ico:'🏛',priority:'high',window_days:'30',topics:'Громади, Відновлення',keywords:'грант,гранти,конкурс,відновлення,громада,community,grant,funding,application'},
-  {cat:'Додаткові',id:'veteran_fund_contests',name:'Ветеранський фонд — конкурси',url:'https://veteranfund.com.ua/contests/',type:'page',parser:'page_links',ico:'🪖',priority:'high',window_days:'60',topics:'Ветерани, Підприємництво',keywords:'ветеран,ветерани,грант,конкурс,підприємництво,бізнес,grant,grants,funding'},
-  {cat:'Google News',id:'google_news_business_grants',name:'Мікрогранти та бізнес',url:'https://news.google.com/rss/search?q=мікрогрант+бізнес+Україна&hl=uk&gl=UA&ceid=UA:uk',type:'rss',parser:'google_news_rss',ico:'📰'},
-  {cat:'Google News',id:'google_news_veteran_grants',name:'Гранти для ветеранів',url:'https://news.google.com/rss/search?q=гранти+для+ветеранів+Україна&hl=uk&gl=UA&ceid=UA:uk',type:'rss',parser:'google_news_rss',ico:'📰'}
+  {cat:'Додаткові',id:'ucf_news',name:'УКФ (Укр. культурний фонд)',url:'https://ucf.in.ua/programs',type:'page',parser:'page_links',ico:'🎭'},
+  {cat:'Додаткові',id:'grant_av',name:'Грант АВ',url:'https://grant.av.ua/',type:'page',parser:'page_links',ico:'🌐'}
 ];
-
-function gfFmtKyivDate(v) {
-  if (!v) return '';
-  var s = String(v).trim();
-  if (!s) return '';
-  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/.test(s)) return s.slice(0,16);
-  var d = new Date(s);
-  if (isNaN(d.getTime())) return s.slice(0,16).replace('T',' ');
-  return new Intl.DateTimeFormat('sv-SE', {
-    timeZone:'Europe/Kyiv',
-    year:'numeric', month:'2-digit', day:'2-digit',
-    hour:'2-digit', minute:'2-digit', second:'2-digit',
-    hour12:false
-  }).format(d).replace(',', '').slice(0,16);
-}
-
-function gfDateMs(v) {
-  if (!v) return 0;
-  var s = String(v).trim();
-  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/.test(s)) {
-    return new Date(s.replace(' ', 'T') + '+03:00').getTime();
-  }
-  var d = new Date(s);
-  return isNaN(d.getTime()) ? 0 : d.getTime();
-}
-
-function gfDefaultSourcePayload(c) {
-  var baseKeywords = 'грант,гранти,грантова програма,конкурс,конкурси,можливість,можливості,фінансування,підтримка,подати заявку,відбір,стипендія,мікрогрант,subgrant,grant,grants,funding,call,open call,opportunity,application';
-  var baseInclude  = 'грант,гранти,конкурс,можливість,фінансування,підтримка,грантова,подати заявку,стипендія,мікрогрант,grant,grants,funding,call,open call,opportunity,application,subgrant';
-  var baseExclude  = 'вакансія,job,jobs,career,about,contact,login,privacy,cookie,sitemap,terms,register,signup,вебінар,розіграш';
-  return {
-    source_id: c.id,
-    source_name: c.name,
-    source_profile: c.id,
-    source_url: c.url,
-    source_type: c.type,
-    parser_mode: c.parser,
-    source_status: 'active',
-    source_priority: c.priority || 'high',
-    item_limit: String(c.item_limit || '20'),
-    first_scan_mode: 'true',
-    fetch_details: String(c.fetch_details || 'true'),
-    scan_window_days: String(c.window_days || '30'),
-    source_keywords: c.keywords || baseKeywords,
-    link_include: c.include || baseInclude,
-    link_exclude: c.exclude || baseExclude,
-    geography_hint: c.geography_hint || 'Вся Україна, Громади',
-    applicants_hint: c.applicants_hint || 'ОМС, Громадські організації, Заклади освіти',
-    donor_hint: c.donor_hint || '',
-    source_topics: c.topics || '',
-    found_count: 0
-  };
-}
 
 /* ═══════════════════════════════════════════════════════════
    ГОЛОВНИЙ ВИД ДЖЕРЕЛ
@@ -134,12 +75,9 @@ function gfViewSources() {
   var paused = src.filter(function(s) { return s.source_status !== 'active'; });
 
   var view = GF.sourceView || 'active';
-  // Рахуємо джерела з помилками
-  var errSrc = src.filter(function(s) { return s.last_error || s.last_error_code; });
   var tabs = [
     ['active',   'Активні',          active.length],
     ['paused',   'Призупинені',       paused.length],
-    ['errors',   '🚨 Помилки',        errSrc.length || ''],
     ['catalog',  '📚 Каталог',        GF_CATALOG.length],
     ['discover', '🔎 Нові джерела',   ''],
     ['archive',  'Архів',             arch.length]
@@ -154,7 +92,6 @@ function gfViewSources() {
 
   if (view === 'catalog')  return gfViewCatalog(th, src);
   if (view === 'discover') return gfViewDiscover(th, src);
-  if (view === 'errors')   return gfViewErrors(th, src);
 
   /* Quick add from URL */
   var addH = '<div style="margin-bottom:12px;padding:14px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--r)">'
@@ -206,7 +143,7 @@ function gfViewSources() {
         + '<span>' + gfE(s.source_type||'') + '</span>'
         + '<span>' + gfE(s.parser_mode||'') + '</span>'
         + '<span>Всього: ' + (s.found_count||0) + '</span>'
-        + (s.last_checked_at ? '<span>Перевірено: ' + gfE(gfFmtKyivDate(s.last_checked_at_kyiv || s.last_checked_at || '')) + '</span>' : '')
+        + (s.last_checked_at ? '<span>Перевірено: ' + gfE((s.last_checked_at||'').slice(0,16).replace('T',' ')) + '</span>' : '')
         + gfSrcLogBadge(s)
         + (s.last_error ? '<span style="color:var(--red)" title="' + gfE(s.last_error) + '">❌ Помилка</span>' : '')
         + (s.source_topics ? '<span>' + gfE(s.source_topics) + '</span>' : '')
@@ -232,498 +169,11 @@ function gfViewSources() {
   }
 
   return '<div class="gf-panel"><div class="gf-panel-h"><h3>Джерела</h3>'
-    + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    + '<div style="display:flex;gap:6px">'
     + '<span class="gf-badge blue">' + src.length + '</span>'
     + '<button class="gf-btn sm" onclick="gfOpenSourceForm()">+ Нове</button>'
-    + '<button id="gfBulkScanBtn" class="gf-btn sm g" onclick="gfBulkScanAll()" style="font-size:10px" title="Послідовно просканувати всі активні джерела з прогресом">⏯ Масове сканування</button>'
-    + '<button id="gfOpenReportBtn" class="gf-btn sm o" onclick="gfOpenFullReportTab()" style="font-size:10px" title="Повний звіт у новій вкладці">↗ Звіт</button>'
-    + '<button id="gfDownloadReportBtn" class="gf-btn sm o" onclick="gfDownloadFullReport()" style="font-size:10px" title="Завантажити .txt">⬇</button>'
-    + '<button class="gf-btn sm r" onclick="gfClearAllScanLogs()" style="font-size:10px" title="Очистити всі логи сканування. Зручно після деплою — бачитимеш тільки свіжі результати">🗑 Очистити звіт</button>'
     + '</div></div>'
     + th + (view !== 'archive' ? addH : '') + searchH + listH + '</div>';
-}
-
-/* ═══════════════════════════════════════════════════════════
-   ЗВІТ ПО ПОМИЛКАХ — всі проблемні джерела в одному місці
-   ═══════════════════════════════════════════════════════════ */
-function gfViewErrors(tabsH, allSrc) {
-  // Класифікація помилок
-  var ERROR_META = {
-    'TIMEOUT':       { icon:'⏱️', color:'#f59e0b', label:'Таймаут з\'єднання',    hint:'Сервер не відповідає за 30 сек. Перевірте чи сайт доступний.' },
-    'ENOTFOUND':     { icon:'🔍', color:'#ef4444', label:'Домен не знайдено',      hint:'DNS не резолвить. Можливо сайт закритий або змінив адресу.' },
-    'ECONNREFUSED':  { icon:'🚫', color:'#ef4444', label:'З\'єднання відхилено',   hint:'Сервер відмовляє у підключенні. Перевірте URL.' },
-    'ECONNRESET':    { icon:'🔌', color:'#f59e0b', label:'З\'єднання перервано',   hint:'Сервер обірвав з\'єднання. Спробуйте пізніше.' },
-    'ETIMEDOUT':     { icon:'⌛', color:'#f59e0b', label:'Таймаут мережі',         hint:'Сервер відповідає, але надто повільно.' },
-    'HTTP_403':      { icon:'🔐', color:'#f59e0b', label:'Доступ заборонено 403',  hint:'Сервер блокує парсер. Можливо потрібна авторизація або інший парсер.' },
-    'HTTP_404':      { icon:'❓', color:'#ef4444', label:'Сторінка не знайдена 404', hint:'URL більше не існує. Оновіть посилання.' },
-    'HTTP_5XX':      { icon:'💥', color:'#f59e0b', label:'Помилка сервера 5xx',    hint:'Тимчасова проблема на стороні сервера.' },
-    'SSL_ERROR':     { icon:'🔒', color:'#ef4444', label:'Помилка SSL',             hint:'Проблема з HTTPS сертифікатом сайту.' },
-    'UNKNOWN':       { icon:'⚠️', color:'#94a3b8', label:'Невідома помилка',        hint:'Перегляньте деталі в логу сканування.' },
-  };
-
-  // Джерела з помилками
-  var errSrc = allSrc.filter(function(s) { return s.last_error || s.last_error_code; });
-  // Джерела що давно не сканувались успішно (>48 год)
-  var stale = allSrc.filter(function(s) {
-    if (!s.source_status || s.source_status !== 'active') return false;
-    if (!s.last_checked_at) return true;
-    var ms = Date.now() - gfDateMs(s.last_checked_at_kyiv || s.last_checked_at || '');
-    return ms > 48 * 3600 * 1000;
-  });
-  // Унікалізуємо (dedup stale з errSrc)
-  var staleOnly = stale.filter(function(s) {
-    return !errSrc.find(function(e) { return (e._id||e.source_id) === (s._id||s.source_id); });
-  });
-
-  var h = '<div class="gf-panel"><div class="gf-panel-h"><h3>🚨 Звіт по помилках</h3>'
-    + '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'
-    + '<span class="gf-badge red">' + errSrc.length + ' помилок</span>'
-    + (staleOnly.length ? '<span class="gf-badge yellow">' + staleOnly.length + ' застарілих</span>' : '')
-    + '<button id="gfBulkScanBtnErr" class="gf-btn sm g" onclick="gfBulkScanAll()" style="font-size:10px">⏯ Масове сканування</button>'
-    + '<button id="gfOpenReportBtn" class="gf-btn sm" onclick="gfOpenFullReportTab()" style="font-size:10px">↗ Відкрити у вкладці</button>'
-    + '<button id="gfDownloadReportBtn" class="gf-btn sm o" onclick="gfDownloadFullReport()" style="font-size:10px">⬇ Завантажити (.txt)</button>'
-    + '<button class="gf-btn sm o" onclick="gfCopyErrorReport()" style="font-size:10px">📋 Копіювати помилки</button>'
-    + '<button class="gf-btn sm r" onclick="gfClearAllScanLogs()" style="font-size:10px" title="Видалити всі логи сканування. Корисно після деплою — потім будуть тільки свіжі результати">🗑 Очистити звіт</button>'
-    + '</div></div>'
-    + tabsH;
-
-  if (!errSrc.length && !staleOnly.length) {
-    return h + '<div class="gf-ok" style="margin:16px 0">✅ Всі активні джерела працюють без помилок.</div></div>';
-  }
-
-  // ── Статистика по типах помилок ──
-  if (errSrc.length) {
-    var byCode = {};
-    errSrc.forEach(function(s) {
-      var code = s.last_error_code || 'UNKNOWN';
-      if (!byCode[code]) byCode[code] = 0;
-      byCode[code]++;
-    });
-    h += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">';
-    Object.keys(byCode).forEach(function(code) {
-      var m = ERROR_META[code] || ERROR_META['UNKNOWN'];
-      h += '<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 14px;display:flex;align-items:center;gap:8px">'
-        + '<span style="font-size:18px">' + m.icon + '</span>'
-        + '<div><div style="font-size:12px;font-weight:700;color:' + m.color + '">' + gfE(m.label) + '</div>'
-        + '<div style="font-size:10px;color:#64748b">' + byCode[code] + ' ' + (byCode[code] === 1 ? 'джерело' : 'джерел') + '</div></div>'
-        + '</div>';
-    });
-    h += '</div>';
-
-    // ── Список джерел з помилками ──
-    h += '<div style="margin-bottom:8px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Джерела з помилками (' + errSrc.length + ')</div>';
-    h += '<div class="gf-list" style="margin-bottom:20px">';
-    errSrc.forEach(function(s) {
-      var code  = s.last_error_code || 'UNKNOWN';
-      var meta  = ERROR_META[code] || ERROR_META['UNKNOWN'];
-      var errMsg = s.last_error || s.last_scan_log && s.last_scan_log.error || '';
-      var ll = s.last_scan_log || {};
-      var lastCheck = gfFmtKyivDate(s.last_checked_at_kyiv || s.last_checked_at || '');
-      var ico = /telegram/i.test(s.source_type||'') ? '📱' : /rss/i.test(s.source_type||'') ? '📡' : '🌐';
-      var sid = s._id || s.source_id;
-      var stage = '—';
-      var steps = ll.diag_steps || [];
-      if (steps.length) {
-        var pe = steps.find(function(st){ return st.step === 'parse_error'; });
-        if (pe) stage = 'parse_error';
-        else if (ll.non_ua_dropped || ll.age_dropped) stage = 'selection_gates';
-        else if (ll.after_filter === 0 && ll.raw_found > 0) stage = ll.fallback_mode ? 'filter_fallback' : 'filter';
-        else if (ll.dupes) stage = 'dedup';
-        else if (ll.created) stage = 'created';
-      }
-
-      h += '<div class="gf-item" style="padding:12px 16px;border-left:3px solid ' + meta.color + '">'
-        + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
-        + '<div style="flex:1;min-width:0">'
-        + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">'
-        + '<span style="font-size:13px">' + ico + '</span>'
-        + '<span style="font-size:13px;font-weight:700">' + gfE(s.source_name||'?') + '</span>'
-        + '<span style="font-size:11px;background:rgba(255,255,255,.06);color:' + meta.color + ';padding:1px 7px;border-radius:4px">'
-        + meta.icon + ' ' + gfE(meta.label) + '</span>'
-        + '</div>'
-        // Повідомлення помилки
-        + (errMsg ? '<div style="font-size:11px;color:#fca5a5;margin-bottom:4px;word-break:break-all">' + gfE(errMsg.slice(0,200)) + '</div>' : '')
-        // Підказка
-        + '<div style="font-size:11px;color:#64748b;margin-bottom:4px">' + gfE(meta.hint) + '</div>'
-        // URL + час перевірки
-        + '<div style="font-size:10px;color:#475569;word-break:break-all">'
-        + gfE(s.source_url||'')
-        + (lastCheck ? ' · перевірено ' + lastCheck : '')
-        + '</div>'
-        + '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px">'
-        + gfLogCell('Етап', gfE(stage), '#93c5fd')
-        + gfLogCell('Raw', ll.raw_found||0, '#e2e8f0')
-        + gfLogCell('Після фільтру', ll.after_filter||0, '#fcd34d')
-        + gfLogCell('HTTP', ll.http_status||'—', '#fca5a5')
-        + '</div>'
-        + '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:6px">'
-        + gfLogCell('>14 днів', ll.age_dropped||0, '#fb7185')
-        + gfLogCell('Не UA', ll.non_ua_dropped||0, '#f97316')
-        + gfLogCell('Fallback', ll.fallback_mode ? 'так' : 'ні', ll.fallback_mode ? '#10b981' : '#94a3b8')
-        + '</div>'
-        + '</div>'
-        // Кнопки дій
-        + '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'
-        + '<button class="gf-btn sm g" onclick="gfForceScan(\'' + gfE(sid) + '\',\'' + gfE(s.source_name||'') + '\')">▶ Скан</button>'
-        + '<button class="gf-btn sm o" onclick="gfShowScanLog(\'' + gfE(sid) + '\',\'' + gfE(s.source_name||'') + '\')">📋 Лог</button>'
-        + '<button class="gf-btn sm o" onclick="gfOpenSourceForm(\'' + gfE(sid) + '\')">✏️</button>'
-        + '</div>'
-        + '</div></div>';
-    });
-    h += '</div>';
-  }
-
-  // ── Застарілі джерела ──
-  if (staleOnly.length) {
-    h += '<div style="margin-bottom:8px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Застарілі — не сканувались >48 год (' + staleOnly.length + ')</div>';
-    h += '<div class="gf-list">';
-    staleOnly.forEach(function(s) {
-      var lastCheck = s.last_checked_at ? gfFmtKyivDate(s.last_checked_at_kyiv || s.last_checked_at || '') : 'ніколи';
-      var sid = s._id || s.source_id;
-      h += '<div class="gf-item" style="padding:10px 16px;border-left:3px solid #475569">'
-        + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
-        + '<div><div style="font-size:13px;font-weight:600">' + gfE(s.source_name||'?') + '</div>'
-        + '<div style="font-size:10px;color:#64748b">Остання перевірка: ' + lastCheck + ' · ' + gfE(s.source_url||'') + '</div>'
-        + '</div>'
-        + '<button class="gf-btn sm g" onclick="gfForceScan(\'' + gfE(sid) + '\',\'' + gfE(s.source_name||'') + '\')">▶ Скан</button>'
-        + '</div></div>';
-    });
-    h += '</div>';
-  }
-
-  return h + '</div>';
-}
-
-/* ═══════════════════════════════════════════════════════════
-   ПОВНИЙ ЗВІТ — завантаження файлом або відкриття в редакторі
-   ═══════════════════════════════════════════════════════════ */
-
-/**
- * Будує текст повного звіту по всіх джерелах.
- * logs — масив документів з gf_scan_logs (останній запис кожного джерела)
- * sources — масив gf_sources
- */
-function gfBuildFullReport(sources, logs) {
-  var now = new Date().toLocaleString('uk-UA', { timeZone: 'Europe/Kyiv' });
-  var lines = [];
-
-  // ─── ЗАГОЛОВОК ───────────────────────────────────────────────
-  lines.push('╔══════════════════════════════════════════════════════════════════╗');
-  lines.push('║         ПОВНИЙ ЗВІТ ПАРСИНГУ — KONTROL PRO                      ║');
-  lines.push('╚══════════════════════════════════════════════════════════════════╝');
-  lines.push('Дата звіту : ' + now);
-  lines.push('Джерел     : ' + sources.length);
-  var active  = sources.filter(function(s){ return s.source_status === 'active'; }).length;
-  var errCnt  = sources.filter(function(s){ return s.last_error || s.last_error_code; }).length;
-  var okCnt   = sources.filter(function(s){ return !s.last_error && !s.last_error_code && s.last_scan_log && s.last_scan_log.status === 'ok_new'; }).length;
-  lines.push('Активних   : ' + active);
-  lines.push('З помилками: ' + errCnt);
-  lines.push('Успішних   : ' + okCnt);
-  lines.push('');
-
-  // ─── ЗВЕДЕНА ТАБЛИЦЯ ─────────────────────────────────────────
-  lines.push('══════════════════════════════════════════════════════════════════');
-  lines.push('ЗВЕДЕНА ТАБЛИЦЯ ПО ДЖЕРЕЛАХ');
-  lines.push('══════════════════════════════════════════════════════════════════');
-  lines.push(padR('Назва', 26) + padR('Тип', 10) + padR('Парсер', 16) + padR('Статус', 12) + padR('Raw', 7) + padR('>14д', 6) + padR('НеUA', 6) + padR('Нових', 7) + padR('Дубл', 6) + 'Остання перевірка');
-  lines.push('─'.repeat(125));
-
-  sources.forEach(function(s) {
-    var ll   = s.last_scan_log || {};
-    var st   = s.last_error_code || ll.status || '—';
-    var lc   = gfFmtKyivDate(s.last_checked_at_kyiv || s.last_checked_at || '');
-    lines.push(
-      padR((s.source_name||'?').slice(0,25), 26) +
-      padR((s.source_type||'').slice(0,9), 10) +
-      padR((s.parser_mode||ll.parser_mode||'').slice(0,15), 16) +
-      padR(st.slice(0,11), 12) +
-      padR(String(ll.raw_found||0), 7) +
-      padR(String(ll.age_dropped||0), 6) +
-      padR(String(ll.non_ua_dropped||0), 6) +
-      padR(String(ll.created||0), 7) +
-      padR(String(ll.dupes||0), 6) +
-      (lc || '—')
-    );
-  });
-  lines.push('');
-
-  // ─── СТАТИСТИКА ПО МЕТОДАХ СКАНУВАННЯ ────────────────────────
-  lines.push('══════════════════════════════════════════════════════════════════');
-  lines.push('МЕТОДИ СКАНУВАННЯ (parser_mode)');
-  lines.push('══════════════════════════════════════════════════════════════════');
-  var parserStats = {};
-  sources.forEach(function(s) {
-    var p = s.parser_mode || (s.last_scan_log && s.last_scan_log.parser_mode) || 'невідомо';
-    if (!parserStats[p]) parserStats[p] = { total:0, ok:0, err:0, found:0, created:0 };
-    parserStats[p].total++;
-    var ll = s.last_scan_log || {};
-    if (s.last_error || s.last_error_code) parserStats[p].err++;
-    else parserStats[p].ok++;
-    parserStats[p].found   += ll.raw_found || 0;
-    parserStats[p].created += ll.created || 0;
-  });
-  Object.keys(parserStats).sort().forEach(function(p) {
-    var ps = parserStats[p];
-    lines.push('  ' + padR(p, 20) + ' всього: ' + padR(String(ps.total),4) + ' | ok: ' + padR(String(ps.ok),4) + ' | помилок: ' + padR(String(ps.err),4) + ' | знайдено: ' + padR(String(ps.found),6) + ' | нових: ' + ps.created);
-  });
-  lines.push('');
-
-  // ─── ДЕТАЛЬНИЙ БЛОК КОЖНОГО ДЖЕРЕЛА ──────────────────────────
-  lines.push('══════════════════════════════════════════════════════════════════');
-  lines.push('ДЕТАЛЬНИЙ ЛОГ ПО КОЖНОМУ ДЖЕРЕЛУ');
-  lines.push('══════════════════════════════════════════════════════════════════');
-
-  // Сортуємо: спочатку з помилками, потім решта
-  var sorted = sources.slice().sort(function(a,b) {
-    var ae = !!(a.last_error || a.last_error_code);
-    var be = !!(b.last_error || b.last_error_code);
-    if (ae && !be) return -1;
-    if (!ae && be) return 1;
-    return (a.source_name||'').localeCompare(b.source_name||'');
-  });
-
-  sorted.forEach(function(s) {
-    var ll  = s.last_scan_log || {};
-    var hasErr = !!(s.last_error || s.last_error_code);
-    var sid = s._id || s.source_id || '—';
-    lines.push('');
-    lines.push((hasErr ? '❌ ' : '✅ ') + '══ ' + (s.source_name||'?') + ' ══');
-    lines.push('  ID         : ' + sid);
-    lines.push('  URL        : ' + (s.source_url||'—'));
-    lines.push('  Тип        : ' + (s.source_type||'—'));
-    lines.push('  Парсер     : ' + (s.parser_mode||ll.parser_mode||'—'));
-    lines.push('  Статус     : ' + (s.source_status||'—'));
-    lines.push('  Пріоритет  : ' + (s.source_priority||'—'));
-    lines.push('  Вікно (дн) : ' + (s.scan_window_days||s.window_days||ll.window_days||7));
-    lines.push('  Ліміт      : ' + (s.item_limit||10));
-    lines.push('  Всього знайдено за весь час: ' + (s.found_count||0));
-    lines.push('');
-    lines.push('  ── Останнє сканування ──');
-    lines.push('  Час        : ' + (gfFmtKyivDate(s.last_checked_at_kyiv || s.last_checked_at || '') || '—'));
-    lines.push('  Статус     : ' + (ll.status||'—'));
-    lines.push('  Знайдено   : ' + (ll.raw_found||0));
-    lines.push('  Після фільтру: ' + (ll.after_filter||0));
-    lines.push('  Відсіяно >14 днів: ' + (ll.age_dropped||0));
-    lines.push('  Відсіяно не UA : ' + (ll.non_ua_dropped||0));
-    lines.push('  Fallback фільтр: ' + (ll.fallback_mode ? 'так' : 'ні'));
-    lines.push('  Нових      : ' + (ll.created||0));
-    lines.push('  Дублів     : ' + (ll.dupes||0));
-    lines.push('  Деталей    : ' + (ll.detailed||0));
-    lines.push('  HTTP       : ' + (ll.http_status||'—'));
-    lines.push('  Мульти     : ' + (ll.is_multi ? 'так' : 'ні'));
-
-    if (hasErr) {
-      lines.push('');
-      lines.push('  ── ПОМИЛКА ──');
-      lines.push('  Код        : ' + (s.last_error_code||'UNKNOWN'));
-      lines.push('  Опис       : ' + (s.last_error_label||'—'));
-      lines.push('  Повідомлення: ' + (s.last_error||ll.error||'—'));
-    }
-
-    // Діагностичні кроки з логу
-    var steps = ll.diag_steps || [];
-    if (steps.length) {
-      lines.push('');
-      lines.push('  ── Кроки діагностики ──');
-      steps.forEach(function(step) {
-        var data = Object.assign({}, step);
-        delete data.step; delete data.ts;
-        var dataStr = JSON.stringify(data);
-        // Довгий stack — обрізаємо
-        if (dataStr.length > 300) dataStr = dataStr.slice(0,300) + '…';
-        lines.push('  [' + (step.ts||'') + '] ' + padR(step.step||'', 28) + ' ' + dataStr);
-      });
-    }
-
-    // Попередження
-    var warns = ll.diag_warnings || [];
-    if (warns.length) {
-      lines.push('');
-      lines.push('  ── Попередження ──');
-      // Групуємо
-      var errW   = warns.filter(function(w){ return w.startsWith('Parse failed') || w.startsWith('Fatal'); });
-      var dupW   = warns.filter(function(w){ return w.startsWith('dup_'); });
-      var restW  = warns.filter(function(w){ return !w.startsWith('Parse failed') && !w.startsWith('Fatal') && !w.startsWith('dup_'); });
-      if (errW.length)  { errW.forEach(function(w){ lines.push('  🚨 ' + w); }); }
-      if (dupW.length)  { lines.push('  ♻️  Дублікатів пропущено: ' + dupW.length);
-        dupW.slice(0,10).forEach(function(w){ lines.push('     ' + w); });
-        if (dupW.length>10) lines.push('     … ще ' + (dupW.length-10));
-      }
-      if (restW.length) { restW.slice(0,10).forEach(function(w){ lines.push('  ⚠️  ' + w); }); }
-    }
-
-    // Логи з Firestore (якщо є в масиві logs)
-    var srcLogs = logs.filter(function(l){ return l.source_id === sid; })
-      .sort(function(a,b){ return (b.scanned_at||'') > (a.scanned_at||'') ? 1 : -1; });
-    if (srcLogs.length > 1) {
-      lines.push('');
-      lines.push('  ── Історія останніх ' + srcLogs.length + ' сканувань ──');
-      lines.push('  ' + padR('Час', 20) + padR('Статус', 14) + padR('Знайдено', 10) + padR('Нових', 7) + padR('Дублів', 7) + 'Помилка');
-      lines.push('  ' + '─'.repeat(80));
-      srcLogs.slice(0,20).forEach(function(l) {
-        var errShort = (l.error||'').slice(0,40);
-        lines.push('  ' +
-          padR(gfFmtKyivDate(l.scanned_at || l.scanned_at_iso || ''), 20) +
-          padR(l.status||'—', 14) +
-          padR(String(l.raw_found||0), 10) +
-          padR(String(l.created||0), 7) +
-          padR(String(l.dupes||0), 7) +
-          (errShort || '')
-        );
-      });
-    }
-
-    lines.push('  ' + '─'.repeat(70));
-  });
-
-  lines.push('');
-  lines.push('══════════════════════════════════════════════════════════════════');
-  lines.push('Кінець звіту · ' + now);
-  lines.push('══════════════════════════════════════════════════════════════════');
-
-  return lines.join('\n');
-}
-
-function padR(str, len) {
-  str = String(str);
-  return str.length >= len ? str.slice(0,len) : str + ' '.repeat(len - str.length);
-}
-
-/* ── Завантажує повний звіт файлом .txt ── */
-async function gfDownloadFullReport() {
-  var btn = document.getElementById('gfDownloadReportBtn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Збираю дані…'; }
-
-  try {
-    var sources = GF.data.sources || [];
-    if (!sources.length) { gfToast('Немає джерел', 'var(--red)'); return; }
-
-    // Завантажуємо останні логи всіх джерел (по 1 на джерело — останній)
-    var logs = [];
-    try {
-      // Беремо останні 200 записів логів — охоплює більшість джерел
-      var snap = await db.collection('gf_scan_logs')
-        .orderBy('scanned_at', 'desc')
-        .limit(500).get();
-      if (!snap.empty) {
-        snap.docs.forEach(function(d) { logs.push(d.data()); });
-      }
-    } catch(e) { /* ігноруємо — продовжуємо без повної історії */ }
-
-    var text = gfBuildFullReport(sources, logs);
-
-    // ── Завантажуємо файл ──
-    var blob = new Blob(['\uFEFF' + text], { type: 'text/plain;charset=utf-8' });
-    var url  = URL.createObjectURL(blob);
-    var a    = document.createElement('a');
-    var ts   = new Date().toLocaleString('sv-SE', {timeZone:'Europe/Kyiv'}).replace(/[\s:]/g,'-').slice(0,16);
-    a.href     = url;
-    a.download = 'kontrol-pro-report-' + ts + '.txt';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    gfToast('Звіт завантажено (' + sources.length + ' джерел)', 'var(--green)');
-  } catch(e) {
-    gfToast('Помилка: ' + e.message, 'var(--red)');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '⬇ Завантажити звіт (.txt)'; }
-  }
-}
-
-/* ── Відкрити звіт у новій вкладці (текстовий редактор браузера) ── */
-async function gfOpenFullReportTab() {
-  var btn = document.getElementById('gfOpenReportBtn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Збираю дані…'; }
-
-  try {
-    var sources = GF.data.sources || [];
-    if (!sources.length) { gfToast('Немає джерел', 'var(--red)'); return; }
-
-    var logs = [];
-    try {
-      var snap = await db.collection('gf_scan_logs')
-        .orderBy('scanned_at', 'desc').limit(500).get();
-      if (!snap.empty) snap.docs.forEach(function(d) { logs.push(d.data()); });
-    } catch(e) {}
-
-    var text = gfBuildFullReport(sources, logs);
-
-    // Відкриваємо у новій вкладці як preformatted text
-    var html = '<!DOCTYPE html><html><head><meta charset="utf-8">'
-      + '<title>Kontrol Pro — Звіт парсингу</title>'
-      + '<style>'
-      + 'body{margin:0;background:#0b0f1a;color:#e2e8f0;font-family:\'Courier New\',monospace;font-size:12px;line-height:1.6;padding:16px}'
-      + 'pre{white-space:pre-wrap;word-break:break-all}'
-      + '.toolbar{position:sticky;top:0;background:#0f172a;border-bottom:1px solid #1e293b;padding:8px 16px;display:flex;gap:8px;z-index:10}'
-      + 'button{background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:11px}'
-      + 'button:hover{background:#334155;color:#e2e8f0}'
-      + '.err{color:#fca5a5}.ok{color:#86efac}.warn{color:#fde68a}.info{color:#93c5fd}.muted{color:#475569}'
-      + '</style></head><body>'
-      + '<div class="toolbar">'
-      + '<button onclick="window.print()">🖨 Друк</button>'
-      + '<button onclick="navigator.clipboard.writeText(document.querySelector(\'pre\').textContent).then(()=>this.textContent=\'✓ Скопійовано\')">📋 Копіювати все</button>'
-      + '<button onclick="var t=document.querySelector(\'pre\').textContent;var b=new Blob([\'\\uFEFF\'+t],{type:\'text/plain;charset=utf-8\'});var a=document.createElement(\'a\');a.href=URL.createObjectURL(b);a.download=\'kontrol-report.txt\';a.click()">⬇ Зберегти файл</button>'
-      + '<span style="margin-left:auto;color:#475569;font-size:11px">Kontrol Pro · ' + new Date().toLocaleString('uk-UA',{timeZone:'Europe/Kyiv'}) + '</span>'
-      + '</div>'
-      + '<pre>' + text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-        // Підсвітка
-        .replace(/(❌[^\n]*)/g,'<span class="err">$1</span>')
-        .replace(/(✅[^\n]*)/g,'<span class="ok">$1</span>')
-        .replace(/(⚠️[^\n]*|🚨[^\n]*)/g,'<span class="warn">$1</span>')
-        .replace(/(♻️[^\n]*)/g,'<span class="muted">$1</span>')
-        .replace(/(══[^\n]*)/g,'<span class="info">$1</span>')
-      + '</pre></body></html>';
-
-    var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    var tabUrl = URL.createObjectURL(blob);
-    window.open(tabUrl, '_blank');
-    // URL revoke через 60 сек
-    setTimeout(function() { URL.revokeObjectURL(tabUrl); }, 60000);
-
-    gfToast('Звіт відкрито у новій вкладці', 'var(--green)');
-  } catch(e) {
-    gfToast('Помилка: ' + e.message, 'var(--red)');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '↗ Відкрити у вкладці'; }
-  }
-}
-
-/* ── Копіювати короткий звіт про помилки в буфер ── */
-function gfCopyErrorReport() {
-  var src = GF.data.sources || [];
-  var errSrc = src.filter(function(s) { return s.last_error || s.last_error_code; });
-  if (!errSrc.length) { gfToast('Помилок немає', 'var(--green)'); return; }
-
-  var lines = ['=== ЗВІТ ПО ПОМИЛКАХ ПАРСИНГУ ===',
-               'Дата: ' + new Date().toLocaleString('uk-UA', {timeZone:'Europe/Kyiv'}), ''];
-  errSrc.forEach(function(s) {
-    lines.push('--- ' + (s.source_name||'?') + ' ---');
-    lines.push('URL:     ' + (s.source_url||''));
-    lines.push('Код:     ' + (s.last_error_code||'UNKNOWN'));
-    lines.push('Тип:     ' + (s.last_error_label||'—'));
-    lines.push('Помилка: ' + (s.last_error||''));
-    var ll = s.last_scan_log || {};
-    lines.push('Raw/after: ' + (ll.raw_found||0) + '/' + (ll.after_filter||0) + ' · >14д: ' + (ll.age_dropped||0) + ' · не UA: ' + (ll.non_ua_dropped||0) + ' · HTTP: ' + (ll.http_status||'—'));
-    var lc = gfFmtKyivDate(s.last_checked_at_kyiv || s.last_checked_at || '');
-    if (lc) lines.push('Час:     ' + lc);
-    // Кроки з останнього логу
-    var ll = s.last_scan_log || {};
-    var steps = ll.diag_steps || [];
-    if (steps.length) {
-      lines.push('Кроки:');
-      steps.forEach(function(st) {
-        var d = Object.assign({},st); delete d.step; delete d.ts;
-        lines.push('  [' + (st.ts||'') + '] ' + st.step + ': ' + JSON.stringify(d).slice(0,200));
-      });
-    }
-    lines.push('');
-  });
-
-  navigator.clipboard.writeText(lines.join('\n')).then(function() {
-    gfToast('Звіт скопійовано (' + errSrc.length + ' помилок)', 'var(--green)');
-  }).catch(function() { gfToast('Помилка копіювання', 'var(--red)'); });
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -960,7 +410,7 @@ async function gfShowScanLog(sourceId, sourceName) {
     if (copyBtn) {
       copyBtn.onclick = function() {
         var txt = logDocs.map(function(l){
-          return ['=== ' + gfFmtKyivDate(l.scanned_at || l.scanned_at_iso || '') + ' | ' + (l.status||'') + ' ===',
+          return ['=== ' + (l.scanned_at||'').slice(0,16).replace('T',' ') + ' | ' + (l.status||'') + ' ===',
                   'Знайдено: '+(l.raw_found||0)+' | Фільтр: '+(l.after_filter||0)+' | Нових: '+(l.created||0)+' | Дублів: '+(l.dupes||0),
                   l.error ? '❌ ПОМИЛКА: ' + l.error : '',
                   (l.diag_warnings||[]).length ? 'Попередження:\n' + l.diag_warnings.join('\n') : '',
@@ -994,8 +444,6 @@ async function gfShowScanLog(sourceId, sourceName) {
         var STEP_LABELS = {
           'start':              '🚀 Старт сканування',
           'rss_fetch':          '🌐 HTTP запит',
-          'rss_fetch_retry':    '🔄 Retry з іншим UA',
-          'rss_fetch_done':     '✅ Відповідь отримано',
           'rss_channel':        '📡 RSS канал',
           'rss_atom_feed':      '📡 Atom фід',
           'rss_entries_total':  '📋 Всього записів у фіді',
@@ -1038,13 +486,7 @@ async function gfShowScanLog(sourceId, sourceName) {
             var sc = step.http_status;
             var scColor = sc >= 200 && sc < 300 ? '#10b981' : sc >= 400 ? '#ef4444' : '#f59e0b';
             extraHtml = '<span style="color:' + scColor + ';font-weight:700">HTTP ' + (sc||'?') + '</span>'
-              + ' | ' + gfE(step.content_type || '—');
-          } else if (sName === 'rss_fetch_retry') {
-            extraHtml = '<span style="color:#f59e0b">HTTP ' + step.http_status + ' → спроба ' + (step.next_attempt + 1) + '</span>';
-          } else if (sName === 'rss_fetch_done') {
-            var sc2 = step.http_status;
-            var sc2Color = sc2 >= 200 && sc2 < 300 ? '#10b981' : '#ef4444';
-            extraHtml = '<span style="color:' + sc2Color + '">HTTP ' + sc2 + '</span>'
+              + ' | ' + gfE(step.content_type || '—')
               + ' | ' + Math.round((step.response_size||0)/1024) + ' KB';
           } else if (sName === 'rss_channel' || sName === 'rss_atom_feed') {
             extraHtml = '"' + gfE((step.channel_title||step.feed_title||'').slice(0,60)) + '" | '
@@ -1087,13 +529,7 @@ async function gfShowScanLog(sourceId, sourceName) {
           } else if (sName === 'multi_grant') {
             extraHtml = 'блоків: ' + step.blocks_found + ' | додано: ' + step.added;
           } else if (isErr) {
-            var errLabel = step.error_label ? '<span style="color:#f59e0b;font-weight:700">' + gfE(step.error_label) + '</span> · ' : '';
-            var retriable = step.retriable === false
-              ? '<span style="color:#ef4444;font-size:9px">не повторювати</span>'
-              : step.retriable === true ? '<span style="color:#10b981;font-size:9px">можна повторити</span>' : '';
-            extraHtml = errLabel
-              + '<span style="color:#fca5a5">' + gfE((step.error||'').slice(0,200)) + '</span>'
-              + (retriable ? ' ' + retriable : '')
+            extraHtml = '<span style="color:#fca5a5">' + gfE((step.error||'').slice(0,200)) + '</span>'
               + (step.stack ? '<div style="color:#475569;font-size:9px;margin-top:2px">' + gfE(step.stack.slice(0,200)) + '</div>' : '');
           } else {
             var stepData = Object.assign({}, step);
@@ -1168,7 +604,7 @@ async function gfShowScanLog(sourceId, sourceName) {
         + '<span style="color:' + stColor + ';font-weight:700">' + stIcon + ' ' + stLabel + '</span>'
         + httpBadge
         + '</div>'
-        + '<span style="color:#64748b;font-size:11px">' + gfFmtKyivDate(l.scanned_at || l.scanned_at_iso || '') + '</span>'
+        + '<span style="color:#64748b;font-size:11px">' + (l.scanned_at||'').slice(0,16).replace('T',' ') + '</span>'
         + '</div>'
         + '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px">'
         + gfLogCell('Знайдено',    l.raw_found||0,    '#94a3b8')
@@ -1217,7 +653,7 @@ async function gfForceScan(sourceId, sourceName) {
   gfToast('🔄 Сканую: ' + sourceName + '…', '#4f6ef7');
 
   try {
-    var CF_URL = GFC && GFC.fnBase ? (GFC.fnBase + 'scanSource') : 'https://us-central1-kontrol-pro.cloudfunctions.net/scanSource';
+    var CF_URL = 'https://us-central1-kontrol-pro.cloudfunctions.net/scanSource';
     var resp = await fetch(CF_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1242,153 +678,6 @@ async function gfForceScan(sourceId, sourceName) {
   } finally {
     if (scanBtn) { scanBtn.disabled = false; scanBtn.textContent = '▶ Скан'; }
   }
-}
-
-function gfScanStatusLabel(result) {
-  if (!result) return 'error';
-  if (result.error) return 'error';
-  if ((result.created||0) > 0) return 'ok_new';
-  if ((result.dupes||0) > 0 && (result.passed||0) > 0) return 'ok_dupes';
-  if ((result.checked||0) > 0) return 'filtered';
-  return 'empty';
-}
-
-function gfBulkScanEnsureModal() {
-  var ex = document.getElementById('gfBulkScanModal');
-  if (ex) return ex;
-  var el = document.createElement('div');
-  el.id = 'gfBulkScanModal';
-  el.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(2,6,23,.78);z-index:9999;padding:20px;overflow:auto';
-  el.innerHTML = ''
-    + '<div style="max-width:860px;margin:0 auto;background:#0f172a;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.45)">'
-    + '<div style="display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:12px">'
-    + '<div><div style="font-size:18px;font-weight:800;color:#e2e8f0">Масове сканування джерел</div><div id="gfBulkScanSub" style="font-size:12px;color:#94a3b8">Підготовка…</div></div>'
-    + '<div style="display:flex;gap:8px">'
-    + '<button class="gf-btn sm o" onclick="gfBulkScanStop()">⏹ Зупинити</button>'
-    + '<button class="gf-btn sm" onclick="document.getElementById(\'gfBulkScanModal\').style.display=\'none\'">✕ Закрити</button>'
-    + '</div></div>'
-    + '<div style="height:14px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden">'
-    + '<div id="gfBulkScanBar" style="height:100%;width:0%;background:linear-gradient(90deg,#4f46e5,#10b981);transition:width .25s"></div></div>'
-    + '<div id="gfBulkScanStats" style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:12px"></div>'
-    + '<div id="gfBulkScanCurrent" style="margin-top:12px;font-size:13px;color:#e2e8f0"></div>'
-    + '<div id="gfBulkScanLog" style="margin-top:14px;max-height:420px;overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px;background:rgba(255,255,255,.03)"></div>'
-    + '</div>';
-  document.body.appendChild(el);
-  return el;
-}
-
-function gfBulkScanRender() {
-  var st = GF.bulkScanState || {};
-  var modal = gfBulkScanEnsureModal();
-  modal.style.display = 'block';
-  var total = st.total || 0;
-  var processed = st.processed || 0;
-  var pct = total ? Math.round(processed / total * 100) : 0;
-  var sub = document.getElementById('gfBulkScanSub');
-  var bar = document.getElementById('gfBulkScanBar');
-  var stats = document.getElementById('gfBulkScanStats');
-  var current = document.getElementById('gfBulkScanCurrent');
-  var log = document.getElementById('gfBulkScanLog');
-  if (sub) sub.textContent = (st.running ? 'Виконується… ' : 'Завершено. ') + processed + ' / ' + total + ' · ' + pct + '%';
-  if (bar) bar.style.width = pct + '%';
-  if (stats) {
-    stats.innerHTML = [
-      gfLogCell('Опрацьовано', processed + '/' + total, '#93c5fd'),
-      gfLogCell('Нових', st.created || 0, '#10b981'),
-      gfLogCell('Дублів', st.dupes || 0, '#f59e0b'),
-      gfLogCell('Помилок', st.errors || 0, '#ef4444'),
-      gfLogCell('>14 днів', st.ageDropped || 0, '#fb7185'),
-      gfLogCell('Не UA', st.nonUaDropped || 0, '#f97316')
-    ].join('');
-  }
-  if (current) current.innerHTML = st.current ? ('<b>Зараз:</b> ' + gfE(st.current)) : '';
-  if (log) {
-    var rows = (st.items || []).slice().reverse().map(function(it) {
-      var color = it.status === 'ok_new' ? '#10b981' : it.status === 'error' ? '#ef4444' : it.status === 'filtered' ? '#f59e0b' : '#93c5fd';
-      return '<div style="display:grid;grid-template-columns:74px 1.6fr repeat(6,minmax(52px,.55fr));gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)">'
-        + '<div style="color:#64748b;font-size:11px">' + gfE(it.time || '') + '</div>'
-        + '<div style="color:#e2e8f0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + gfE(it.name || '') + '</div>'
-        + '<div style="color:' + color + ';font-size:11px">' + gfE(it.status || '') + '</div>'
-        + '<div style="font-size:11px;color:#cbd5e1">raw ' + (it.checked || 0) + '</div>'
-        + '<div style="font-size:11px;color:#10b981">new ' + (it.created || 0) + '</div>'
-        + '<div style="font-size:11px;color:#f59e0b">dup ' + (it.dupes || 0) + '</div>'
-        + '<div style="font-size:11px;color:#fb7185">old ' + (it.ageDropped || 0) + '</div>'
-        + '<div style="font-size:11px;color:#f97316">nonUA ' + (it.nonUaDropped || 0) + '</div>'
-        + '</div>';
-    });
-    log.innerHTML = rows.length ? rows.join('') : '<div style="color:#64748b;font-size:12px">Ще немає результатів…</div>';
-  }
-}
-
-function gfBulkScanStop() {
-  if (!GF.bulkScanState) GF.bulkScanState = {};
-  GF.bulkScanState.stop = true;
-  gfToast('⏹ Зупинка після поточного джерела…', '#f59e0b');
-  gfBulkScanRender();
-}
-
-async function gfBulkScanAll() {
-  var activeSources = (GF.data.sources || []).filter(function(s){ return s.source_status === 'active'; });
-  if (!activeSources.length) { gfToast('Немає активних джерел', 'var(--red)'); return; }
-  if (GF.bulkScanState && GF.bulkScanState.running) { gfBulkScanEnsureModal().style.display = 'block'; return; }
-  if (!confirm('Запустити масове сканування ' + activeSources.length + ' активних джерел?')) return;
-
-  GF.bulkScanState = {
-    running: true, stop: false, total: activeSources.length, processed: 0, created: 0, dupes: 0, errors: 0, ageDropped: 0, nonUaDropped: 0, current: '', items: [], startedAt: Date.now()
-  };
-  gfBulkScanRender();
-
-  var CF_URL = GFC && GFC.fnBase ? (GFC.fnBase + 'scanSource') : 'https://us-central1-kontrol-pro.cloudfunctions.net/scanSource';
-
-  for (var i = 0; i < activeSources.length; i++) {
-    var s = activeSources[i];
-    if (GF.bulkScanState.stop) break;
-    GF.bulkScanState.current = s.source_name || ('Джерело ' + (i + 1));
-    gfBulkScanRender();
-
-    var itemResult = {
-      time: new Date().toLocaleTimeString('uk-UA', { hour:'2-digit', minute:'2-digit', second:'2-digit', timeZone:'Europe/Kyiv' }),
-      name: s.source_name || '?', status: 'error', checked: 0, created: 0, dupes: 0, ageDropped: 0, nonUaDropped: 0
-    };
-
-    try {
-      var resp = await fetch(CF_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceId: s._id || s.source_id })
-      });
-      var result = await resp.json();
-      if (!resp.ok || result.error) throw new Error(result.error || ('HTTP ' + resp.status));
-
-      var gate = ((result.diag || {}).steps || []).find(function(st){ return st.step === 'selection_gates'; }) || {};
-      itemResult.status = gfScanStatusLabel(result);
-      itemResult.checked = result.checked || 0;
-      itemResult.created = result.created || 0;
-      itemResult.dupes = result.dupes || 0;
-      itemResult.ageDropped = gate.age_dropped || 0;
-      itemResult.nonUaDropped = gate.non_ua_dropped || 0;
-
-      GF.bulkScanState.created += itemResult.created;
-      GF.bulkScanState.dupes += itemResult.dupes;
-      GF.bulkScanState.ageDropped += itemResult.ageDropped;
-      GF.bulkScanState.nonUaDropped += itemResult.nonUaDropped;
-    } catch (e) {
-      itemResult.status = 'error';
-      itemResult.error = e.message;
-      GF.bulkScanState.errors += 1;
-    }
-
-    GF.bulkScanState.items.push(itemResult);
-    GF.bulkScanState.processed += 1;
-    gfBulkScanRender();
-  }
-
-  GF.bulkScanState.running = false;
-  GF.bulkScanState.current = GF.bulkScanState.stop ? 'Зупинено користувачем' : 'Готово';
-  gfBulkScanRender();
-  await gfRefresh();
-  gfRender();
-  gfToast('✅ Масове сканування завершено: ' + GF.bulkScanState.processed + ' / ' + GF.bulkScanState.total, 'var(--green)');
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1416,10 +705,7 @@ async function gfAddSrcFromUrl() {
       source_type:  isTg ? 'telegram' : (isRss||isNews) ? 'rss' : 'page',
       parser_mode:  isTg ? 'telegram' : isNews ? 'google_news_rss' : isRss ? 'rss' : 'page_links',
       source_status: 'active', source_priority: 'high',
-      item_limit: '20', first_scan_mode: 'true', fetch_details: 'true', scan_window_days: '30',
-      source_keywords: 'грант,гранти,грантова програма,конкурс,можливість,фінансування,підтримка,мікрогрант,grant,grants,funding,call,opportunity,application',
-      link_include: 'грант,гранти,конкурс,можливість,фінансування,підтримка,мікрогрант,grant,grants,funding,call,opportunity,application',
-      link_exclude: 'вакансія,job,jobs,career,about,contact,login,privacy,cookie,sitemap',
+      item_limit: '20', first_scan_mode: 'true', fetch_details: 'true',
       found_count: 0
     });
     gfToast('Додано: ' + name, 'var(--green)');
@@ -1431,7 +717,18 @@ async function gfAddFromCatalog(catalogId) {
   var c = GF_CATALOG.find(function(x) { return x.id === catalogId; });
   if (!c) return;
   try {
-    await gfSaveSource(gfDefaultSourcePayload(c));
+    await gfSaveSource({
+      source_id: c.id, source_name: c.name, source_profile: c.id,
+      source_url: c.url, source_type: c.type, parser_mode: c.parser,
+      source_status: 'active', source_priority: 'high',
+      item_limit: '20', first_scan_mode: 'true', fetch_details: 'true',
+      source_keywords: 'грант,гранти,конкурс,можливість,фінансування',
+      link_include: 'грант,конкурс,можливість,grant,funding',
+      link_exclude: 'вакансія,job,about,contact,login,privacy',
+      geography_hint: 'Вся Україна, Громади',
+      applicants_hint: 'ОМС, Громадські організації, Заклади освіти',
+      found_count: 0
+    });
     gfToast('Додано: ' + c.name, 'var(--green)');
     await gfRefresh();
   } catch(e) { alert('Помилка: ' + e.message); }
@@ -1448,7 +745,18 @@ async function gfBulkAddAll() {
       if (existing.indexOf(c.id.toLowerCase()) >= 0 || existingUrls.indexOf(c.url.toLowerCase().replace(/\/+$/,'')) >= 0) {
         skipped++; continue;
       }
-      await gfSaveSource(gfDefaultSourcePayload(c));
+      await gfSaveSource({
+        source_id: c.id, source_name: c.name, source_profile: c.id,
+        source_url: c.url, source_type: c.type, parser_mode: c.parser,
+        source_status: 'active', source_priority: 'high',
+        item_limit: '20', first_scan_mode: 'true', fetch_details: 'true',
+        source_keywords: 'грант,гранти,конкурс,можливість,фінансування',
+        link_include: 'грант,конкурс,можливість,grant,funding',
+        link_exclude: 'вакансія,job,about,contact,login,privacy',
+        geography_hint: 'Вся Україна, Громади',
+        applicants_hint: 'ОМС, Громадські організації, Заклади освіти',
+        found_count: 0
+      });
       added++;
     }
     gfToast('Додано: ' + added + ', пропущено: ' + skipped, 'var(--green)');
@@ -1480,17 +788,9 @@ async function gfArchiveSrc(id) {
 
 /* ── Статус-бейдж останнього сканування ── */
 function gfSrcLogBadge(s) {
-  var ll  = s.last_scan_log || {};
-  var st  = ll.status || '';
-  var ec  = s.last_error_code || ll.error_code || '';
-  var el  = s.last_error_label || ll.error_label || '';
-  if (!st && !ec) return '';
-
-  if (ec) {
-    var ecIcon = ec === 'TIMEOUT' ? '⏱️' : ec === 'ENOTFOUND' ? '🔍' : ec === 'HTTP_403' ? '🔐' : ec === 'HTTP_404' ? '❓' : ec === 'HTTP_5XX' ? '💥' : ec === 'ECONNRESET' ? '🔌' : '⚠️';
-    return '<span style="color:var(--red)" title="' + gfE(el || ec) + '">' + ecIcon + ' ' + gfE(el || ec) + '</span>';
-  }
-
+  var ll = s.last_scan_log || {};
+  var st = ll.status || '';
+  if (!st) return '';
   var color = st==='ok_new'    ? 'var(--green)'
             : st==='ok_dupes'  ? 'var(--accent)'
             : st==='filtered'  ? 'var(--yellow)'
@@ -1557,64 +857,4 @@ function gfWireSources() {
     }
     if (btn.hasAttribute('data-disc-restore')) { localStorage.removeItem('gf_discover_dismissed'); gfRender(); return; }
   });
-}
-
-/* ═══════════════════════════════════════════════════════════
-   ОЧИСТКА ЛОГІВ СКАНУВАННЯ
-   Видаляє всі збережені логи і скидає last_scan_log на джерелах.
-   Корисно після деплою — в звіті будуть тільки свіжі результати.
-   ═══════════════════════════════════════════════════════════ */
-async function gfClearAllScanLogs() {
-  if (!confirm(
-    '🗑 Очистити всі логи сканування?\n\n' +
-    'Це видалить усю історію сканувань і скине статус у джерел.\n' +
-    'Після очистки в звіті будуть тільки нові результати після наступного сканування.\n\n' +
-    'Натисніть OK щоб підтвердити.'
-  )) return;
-
-  // Показуємо індикатор
-  gfToast('⏳ Очищаємо логи…', '#64748b');
-
-  try {
-    var resp = await fetch(GFC.fnBase + 'clearScanLogs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ all: true })
-    });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    var result = await resp.json();
-    if (!result.ok) throw new Error(result.error || 'Невідома помилка');
-
-    gfToast(
-      '✅ Очищено: ' + (result.deleted_logs || 0) + ' логів, ' +
-      'скинуто ' + (result.reset_sources || 0) + ' джерел',
-      'var(--green)'
-    );
-
-    // Оновлюємо дані й перемальовуємо
-    await gfRefresh();
-    gfRender();
-  } catch(e) {
-    // Якщо Cloud Function ще не задеплоєна — пробуємо очистити локально через Firestore напряму
-    try {
-      var db = firebase.firestore();
-      // Скидаємо last_scan_log на всіх джерелах (доступно з клієнта)
-      var snap = await db.collection(GFC.collections ? GFC.collections.sources : 'gf_sources').get();
-      var batch = db.batch();
-      snap.docs.forEach(function(d) {
-        batch.update(d.ref, {
-          last_scan_log: {},
-          last_error: '',
-          last_error_code: '',
-          last_error_label: ''
-        });
-      });
-      await batch.commit();
-      gfToast('✅ Статуси скинуто (' + snap.size + ' джерел). Логи видаляться при наступній перевірці.', 'var(--green)');
-      await gfRefresh();
-      gfRender();
-    } catch(e2) {
-      alert('Помилка очистки: ' + e.message + '\n\nФallback: ' + e2.message);
-    }
-  }
 }

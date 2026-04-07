@@ -38,9 +38,10 @@ body.sb-mini .main{margin-left:var(--sb-mini)}
 .topbar.hide ~ .main,.topbar.hide ~ * .main{padding-top:16px}
 
 /* === RIGHT PANEL === */
-.rp-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:94;display:none}
+.rp-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:999;display:none}
 .rp-backdrop.open{display:block}
-.rpanel{width:430px;max-width:100%;position:fixed;top:var(--top-h);right:0;bottom:0;background:var(--bg2);border-left:1px solid var(--brd);overflow-y:auto;transform:translateX(100%);transition:transform .3s;z-index:95;padding:14px}
+.rpanel{width:430px;max-width:100%;position:fixed;top:var(--top-h);right:0;bottom:0;background:var(--bg2);border-left:1px solid var(--brd);overflow-y:auto;transform:translateX(100%);transition:transform .3s;z-index:1000;padding:14px}
+.topbar.hide ~ .rpanel,.topbar.hide~.rpanel{top:0}
 .rpanel.open{transform:translateX(0)}
 .rp-x{position:absolute;top:6px;right:6px;background:none;border:none;color:var(--tx2);font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:var(--r2)}
 .rp-x:hover{background:var(--bg3);color:var(--tx)}
@@ -130,10 +131,14 @@ body.sb-mini .main{margin-left:var(--sb-mini)}
 .org-drop .od-item:hover{background:var(--bg3)}
 .org-drop .od-item.od-spec{padding-left:26px;font-size:.72rem;color:var(--tx2)}
 .org-drop .od-item.od-org{font-weight:600}
+.oacts{display:flex;align-items:center;gap:2px;margin-left:auto;opacity:0;transition:opacity .15s}
+.orow:hover .oacts{opacity:1}
 .oacts button{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:.75rem;padding:3px 4px}
-.oacts button:hover{color:var(--tx)}
+.oacts button:hover{color:var(--tx);background:var(--bg3);border-radius:var(--r2)}
 .oacts .ro-btn{display:none}
 #org-t.reorder-on .oacts .ro-btn{display:inline-block}
+/* На мобільному — завжди видимі (немає hover) */
+@media(max-width:768px){.oacts{opacity:1}}
 #org-reorder-btn.active{background:var(--acc);color:#fff}
 .okids{padding-left:18px;overflow:hidden;max-height:0;transition:max-height .3s}
 .okids.open{max-height:3000px}

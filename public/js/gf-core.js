@@ -42,11 +42,20 @@ function exitGrantFlow(){
   gfStopAutoRefresh();
   var gf=gfId('grantflowRoot');
   if(gf){gf.classList.add('hidden');gf.style.display='none';}
+  /* Відновлюємо всі елементи Контролів */
   var topbar=document.getElementById('topbar');if(topbar)topbar.style.display='';
+  var tbShow=document.getElementById('tb-show');if(tbShow)tbShow.style.display='';
   var sidebar=document.getElementById('sidebar');if(sidebar)sidebar.style.display='';
   var mainArea=document.getElementById('main-area');if(mainArea)mainArea.style.display='';
+  /* Відновлюємо праву панель і backdrop */
+  var rp=document.getElementById('rp');if(rp)rp.style.display='';
+  var rpBg=document.getElementById('rp-bg');if(rpBg)rpBg.style.display='';
+  var toast=document.getElementById('toast');if(toast)toast.style.display='';
+  var docOv=document.getElementById('doc-ov');if(docOv)docOv.style.display='';
   var fab=document.querySelector('button[onclick="openNewDoc()"]');
   if(fab)fab.style.display='';
+  /* Примусово скидаємо стан панелі — щоб closeP/openP знову працювали */
+  if(typeof closeP==='function') try{closeP();}catch(e){}
 }
 
 /* ── Auto-refresh кожні 30 сек ── */

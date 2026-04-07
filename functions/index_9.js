@@ -13,6 +13,7 @@ const { XMLParser } = require('fast-xml-parser');
 
 const COL = { sources:'gf_sources', detected:'gf_detected', scanIdx:'gf_scan_index' };
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36';
+const DEFAULT_FETCH_TIMEOUT = 15000;
 
 // ══════ ФІЛЬТРИ ══════
 const GRANT_WORDS = [
@@ -198,24 +199,58 @@ function classify(title, desc) {
   return r;
 }
 
-// ══════ ДЕТАЛЬНИЙ ПАРСИНГ СТОРІНКИ ══════
+// ═════ ДЕТАЛЬНИЙ ПАРСИНГ СТОРІНКИ ══════
 async function fetchDetailPage(url) {
   if (!url || url.length < 10) return null;
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    const resp = await fetch(url, { headers:{'User-Agent':UA}, signal:controller.signal, redirect:'follow' });
-    clearTimeout(timer);
+    const resp = await fetch(url, { headers:{'User-Agent':UA}, timeout:10000, redirect:'follow' });
     if (!resp.ok) return null;
     const html = await resp.text();
     const $ = cheerio.load(html);
-    $('script,style,nav,header,footer,aside,.menu,.sidebar,.nav,.cookie,.popup,.social,.share').remove();
-    const selectors = ['article','.entry-content','.post-content','.article-body','.content','.post','.entry','main','.page-content','.grant-detail','.single-post'];
-    let text = '';
-    for(const s of selectors){ text=$(s).first().text().trim(); if(text&&text.length>100)break; }
+    // Видаляємо скрипти, стилі, навігацію
+    $('script,style,nav,header,footer,aside,.menu,.sidebar,.nav,.cookie,.popup').remove();
+    var text = $('article, .content, .post, .entry, main, .page-content, .grant-detail, .single-post').text().trim();
     if (!text || text.length < 50) text = $('body').text().trim();
     return text.replace(/\s+/g, ' ').slice(0, 5000);
   } catch(e) { return null; }
+}
+
+async function fetchWithRetries(url, options, retries) {
+  options = options || {};
+  retries = typeof retries === 'number' ? retries : 2;
+  var attempt = 0;
+  var waitMs = 1200;
+  var lastErr = null;
+
+  while (attempt <= retries) {
+    try {
+      const resp = await fetch(url, Object.assign({
+        headers: { 'User-Agent': UA },
+        timeout: DEFAULT_FETCH_TIMEOUT
+      }, options || {}));
+
+      if (resp.ok) return resp;
+
+      // Не валимо весь скан на тимчасових помилках джерела
+      if ([429, 500, 502, 503, 504].indexOf(resp.status) >= 0 && attempt < retries) {
+        await new Promise(function(resolve) { setTimeout(resolve, waitMs); });
+        waitMs *= 2;
+        attempt++;
+        continue;
+      }
+
+      return null;
+    } catch (e) {
+      lastErr = e;
+      if (attempt >= retries) break;
+      await new Promise(function(resolve) { setTimeout(resolve, waitMs); });
+      waitMs *= 2;
+      attempt++;
+    }
+  }
+
+  if (lastErr) console.warn('fetchWithRetries failed:', lastErr.message || String(lastErr));
+  return null;
 }
 
 // ══════ SCHEDULED ══════
@@ -232,8 +267,7 @@ exports.scanScheduled = functions.pubsub
     const src = doc.data();
     console.log(`Scan: ${src.source_name || doc.id}`);
     try {
-      const maxNew = Math.min(parseInt(src.item_limit)||10, 30);
-      const r = await scanSingle(doc.id, src, maxNew);
+      const r = await scanSingle(doc.id, src, 3);
       console.log(`Done: raw=${r.checked} pass=${r.passed} new=${r.created} dup=${r.dupes} detail=${r.detailed}`);
     } catch (e) {
       console.error(`Error: ${e.message}`);
@@ -243,28 +277,13 @@ exports.scanScheduled = functions.pubsub
 
 // ══════ CORE ══════
 async function scanSingle(sourceId, src, maxNew) {
-  maxNew = maxNew || 10;
+  maxNew = maxNew || 3;
   const url = src.source_url || '';
   const parser = (src.parser_mode || 'page_links').toLowerCase();
-
-  // Вікно публікацій: ігноруємо старіші за window_days
-  const windowDays = parseInt(src.window_days || src.scan_window_days) || 30;
-  const windowDate = new Date(Date.now() - windowDays * 24 * 3600 * 1000);
-
   let raw = [];
-  if (parser==='rss'||parser==='google_news_rss') raw = await parseRSS(url, 60);
-  else if (parser==='telegram') raw = await parseTelegram(url, 60);
-  else raw = await parsePageLinks(url, 60, src);
-
-  // Фільтрація за датою публікації
-  if (windowDays < 365) {
-    raw = raw.filter(function(item) {
-      if (!item.date) return true;
-      const d = new Date(item.date);
-      if (isNaN(d.getTime())) return true;
-      return d >= windowDate;
-    });
-  }
+  if (parser==='rss'||parser==='google_news_rss') raw = await parseRSS(url, 40);
+  else if (parser==='telegram') raw = await parseTelegram(url, 40);
+  else raw = await parsePageLinks(url, 40, src);
 
   // Фільтрація
   let passed = 0;
@@ -277,12 +296,11 @@ async function scanSingle(sourceId, src, maxNew) {
   for (const item of good) {
     if (created >= maxNew) break;
     const norm = (item.title||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,200);
-    const dUrl = (item.url||'').toLowerCase().replace(/\/+$/,'').replace(/[?#].*$/,'');
+    const dUrl = (item.url||'').toLowerCase().replace(/\/+$/,'');
     
-    // Дедуп по URL (пріоритет)
+    // Дедуп
+    if (norm) { const e = await db.collection(COL.scanIdx).where('normalized_title','==',norm).limit(1).get(); if(!e.empty){dupes++;continue;} }
     if (dUrl) { const e = await db.collection(COL.scanIdx).where('canonical_url','==',dUrl).limit(1).get(); if(!e.empty){dupes++;continue;} }
-    // Дедуп по заголовку тільки якщо немає URL
-    if (norm && !dUrl) { const e = await db.collection(COL.scanIdx).where('normalized_title','==',norm).limit(1).get(); if(!e.empty){dupes++;continue;} }
 
     // Класифікація з базового тексту
     var cls = classify(item.title||'', item.description||'');
@@ -313,9 +331,8 @@ async function scanSingle(sourceId, src, maxNew) {
       detected_id:detId, source_id:sourceId, source_name:src.source_name||'',
       source_url:url, detail_url:item.url||'',
       raw_title:item.title||'', normalized_title:norm,
-      short_desc:(item.description||'').slice(0,600),
-      full_desc: fullText ? fullText.slice(0,4000) : (item.description||'').slice(0,4000),
-      pub_date: item.date||'',
+      short_desc:(item.description||'').slice(0,500),
+      full_desc: fullText ? fullText.slice(0,3000) : (item.description||''),
       found_at:new Date().toISOString(), status:'Виявлено',
       source_type:src.source_type||'',
       donor: cls.donor || src.donor_hint || '',
@@ -342,106 +359,80 @@ async function scanSingle(sourceId, src, maxNew) {
 
 // ══════ ПАРСЕРИ ══════
 async function parseRSS(url, limit) {
-  const resp = await fetch(url, {headers:{'User-Agent':UA},timeout:15000});
-  const xml = await resp.text();
-  const p = new XMLParser({ignoreAttributes:false, attributeNamePrefix:'@_'});
-  const d = p.parse(xml);
-  // Підтримка RSS 2.0 і Atom 1.0
-  let entries = [];
-  if (d.rss && d.rss.channel) {
-    entries = d.rss.channel.item || [];
-  } else if (d.feed) {
-    entries = d.feed.entry || [];
+  try {
+    const resp = await fetchWithRetries(url, { headers:{'User-Agent':UA}, timeout:15000 }, 3);
+    if (!resp) return [];
+    const xml = await resp.text();
+    if (!xml || xml.length < 20) return [];
+
+    const p = new XMLParser({ ignoreAttributes:false });
+    const d = p.parse(xml);
+    const ch = d.rss?.channel || d.feed || {};
+    const entries = ch.item || ch.entry || [];
+    return (Array.isArray(entries) ? entries : [entries]).filter(Boolean).slice(0, limit).map(function(e) {
+      var link = e.link;
+      if (typeof link === 'object') link = link['@_href'] || link['#text'] || '';
+      return {
+        title: String(e.title || '').trim(),
+        url: String(link || '').trim(),
+        description: stripHtml(e.description || e.summary || e['content:encoded'] || e.content || ''),
+        date: e.pubDate || e.published || e.updated || ''
+      };
+    });
+  } catch (e) {
+    console.warn('parseRSS error:', e.message || String(e));
+    return [];
   }
-  const isGoogleNews = url.includes('news.google.com');
-  return (Array.isArray(entries)?entries:[entries]).filter(Boolean).slice(0,limit).map(function(e){
-    var link=e.link;
-    if(typeof link==='object') link=link['@_href']||link['#text']||'';
-    // Для Atom: id може бути URL
-    if(!link && e.id && typeof e.id==='string' && e.id.startsWith('http')) link=e.id;
-    var title = String(e.title||'').trim();
-    // Очищуємо Google News заголовки від " - Назва джерела"
-    if(isGoogleNews && title) title = title.replace(/\s+[-–—]\s+[^-–—]+$/, '').trim();
-    return{
-      title: title,
-      url: String(link||'').trim(),
-      description: stripHtml(e.description||e.summary||e['content:encoded']||(e.content&&e.content['#text'])||e.content||''),
-      date: String(e.pubDate||e.published||e.updated||e['dc:date']||'')
-    };
-  });
 }
 
 async function parseTelegram(url, limit) {
-  const resp = await fetch(url, {headers:{'User-Agent':UA},timeout:15000});
-  const html = await resp.text();
-  const $ = cheerio.load(html);
-  const items = [];
-  $('.tgme_widget_message_wrap').each(function(){
-    if(items.length>=limit)return false;
-    const msg=$(this);
-    const text=msg.find('.tgme_widget_message_text').text().trim();
-    const links=[];
-    msg.find('.tgme_widget_message_text a[href]').each(function(){
-      var h=$(this).attr('href')||'';
-      // Збираємо ВСІ зовнішні посилання, не тільки перший
-      if(h&&h.startsWith('http')&&!h.includes('t.me/')&&!h.includes('telegram.me/'))
-        if(links.indexOf(h)<0) links.push(h);
+  try {
+    const resp = await fetchWithRetries(url, { headers:{'User-Agent':UA}, timeout:15000 }, 2);
+    if (!resp) return [];
+    const html = await resp.text();
+    const $ = cheerio.load(html);
+    const items = [];
+    $('.tgme_widget_message_wrap').each(function(){
+      if(items.length>=limit)return false;
+      const msg=$(this);
+      const text=msg.find('.tgme_widget_message_text').text().trim();
+      const links=[];
+      msg.find('.tgme_widget_message_text a[href]').each(function(){
+        var h=$(this).attr('href')||'';
+        if(h&&!h.startsWith('tg://')&&!h.includes('t.me/'))links.push(h);
+      });
+      const date=msg.find('.tgme_widget_message_date time').attr('datetime')||'';
+      if(text&&text.length>30) items.push({title:text.slice(0,200),description:text,url:links[0]||'',date:date});
     });
-    const msgLink=msg.find('.tgme_widget_message_date').attr('href')||'';
-    const date=msg.find('.tgme_widget_message_date time').attr('datetime')||'';
-    if(text&&text.length>30) items.push({
-      title:text.slice(0,300), // збільшено з 200 до 300
-      description:text,
-      url:links[0]||msgLink,  // зовнішній URL або посилання на пост
-      date:date
-    });
-  });
-  return items;
+    return items;
+  } catch (e) {
+    console.warn('parseTelegram error:', e.message || String(e));
+    return [];
+  }
 }
 
 async function parsePageLinks(url, limit, src) {
-  const resp = await fetch(url, {headers:{'User-Agent':UA},timeout:15000});
-  const html = await resp.text();
-  const $ = cheerio.load(html);
-  const items = [];
-
-  // Фільтри з налаштувань джерела
-  const includeWords = (src.link_include||'').toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
-  const excludeWords = (src.link_exclude||'вакансія,job,about,contact,login,privacy,cookie,sitemap').toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
-
-  // Спершу шукаємо посилання в семантичних тегах (заголовки статей)
-  let found = [];
-  const articleSel = 'article a[href], .entry-title a, .post-title a, h2 a[href], h3 a[href], .grant-title a, [class*="title"] a[href], [class*="grant"] a[href], [class*="item"] a[href]';
-  $(articleSel).each(function(){
-    const href=$(this).attr('href')||'';
-    const text=$(this).text().trim().replace(/\s+/g,' ');
-    if(text&&text.length>=12&&href) found.push({href,text});
-  });
-  // Якщо семантичних мало — беремо всі посилання
-  if(found.length < 3) {
+  try {
+    const resp = await fetchWithRetries(url, { headers:{'User-Agent':UA}, timeout:15000 }, 2);
+    if (!resp) return [];
+    const html = await resp.text();
+    const $ = cheerio.load(html);
+    const items = [];
     $('a[href]').each(function(){
+      if(items.length>=limit)return false;
       const href=$(this).attr('href')||'';
       const text=$(this).text().trim().replace(/\s+/g,' ');
-      if(text&&text.length>=12&&href) found.push({href,text});
+      if(!text||text.length<12||!href)return;
+      let fullUrl;
+      try{fullUrl=href.startsWith('http')?href:new URL(href,url).toString();}catch(e){return;}
+      if(fullUrl===url||href.startsWith('#')||href.startsWith('javascript')||href.startsWith('mailto:'))return;
+      items.push({title:text,url:fullUrl,description:''});
     });
+    return items;
+  } catch (e) {
+    console.warn('parsePageLinks error:', e.message || String(e));
+    return [];
   }
-
-  const seen = {};
-  for(const lk of found){
-    if(items.length>=limit) break;
-    const {href,text}=lk;
-    let fullUrl;
-    try{fullUrl=href.startsWith('http')?href:new URL(href,url).toString();}catch(e){continue;}
-    if(fullUrl===url||href.startsWith('#')||href.startsWith('javascript')||href.startsWith('mailto:'))continue;
-    const normUrl=fullUrl.replace(/\/+$/,'').replace(/[?#].*$/,'');
-    if(seen[normUrl])continue;
-    seen[normUrl]=true;
-    const textLow=(text+' '+normUrl).toLowerCase();
-    if(excludeWords.some(w=>w&&textLow.includes(w)))continue;
-    if(includeWords.length>0&&!includeWords.some(w=>w&&textLow.includes(w)))continue;
-    items.push({title:text,url:fullUrl,description:'',date:''});
-  }
-  return items;
 }
 
 function stripHtml(h){return String(h||'').replace(/<[^>]*>/g,' ').replace(/&\w+;/g,' ').replace(/\s+/g,' ').trim().slice(0,3000);}

@@ -195,6 +195,55 @@ function doFinalSave(payload) {
 }
 
 
+function confirmAndPrint() {
+  /* Зберігаємо документ і після збереження відкриваємо резолюцію */
+  var payload = window._pendingPayload;
+  if (!payload) return;
+
+  var pendingInc = window._pendingIncoming || [];
+  function doSaveAndPrint(pl) {
+    toast('💾 Зберігаю...');
+    apiP(pl).then(function(r) {
+      if (r.ok || r.row) {
+        var savedRow = r.row || pl.row;
+        try { if (typeof logAction === 'function') logAction(pl.row ? 'edit' : 'create', (pl.type||'') + ': ' + (pl.name||'').substring(0,40), savedRow); } catch(le){}
+        var pf = window._pendingFiles || {};
+        var fileKeys = Object.keys(pf);
+        function afterFiles() {
+          window._pendingFiles = {};
+          toast('✅ Збережено');
+          closeP();
+          loadData();
+          /* Відкриваємо резолюцію після завантаження даних */
+          setTimeout(function() {
+            if (typeof printResolution === 'function' && savedRow) {
+              printResolution(savedRow);
+            }
+          }, 800);
+        }
+        if (fileKeys.length > 0 && savedRow) {
+          uploadPendingFiles(savedRow, fileKeys, 0, afterFiles);
+        } else {
+          afterFiles();
+        }
+      } else toast('❌ ' + (r.error || ''));
+    }).catch(function(e) { toast('❌ ' + e.message); });
+  }
+
+  if (pendingInc.length > 0) {
+    toast('📤 Завантажую вхідні файли...');
+    uploadIncomingSeq(pendingInc, 0, [], function(urls) {
+      var existing = payload.docLink ? payload.docLink.split(';').filter(function(s){return s.trim()&&s.indexOf('📤')<0}) : [];
+      payload.docLink = existing.concat(urls).join(';');
+      window._pendingIncoming = [];
+      doSaveAndPrint(payload);
+    });
+  } else {
+    if (payload.docLink) payload.docLink = payload.docLink.split(';').filter(function(s){return s.trim()&&s.indexOf('📤')<0}).join(';');
+    doSaveAndPrint(payload);
+  }
+}
+
 function backToEdit() {
   // Re-open the form — crude but effective
   var p = window._pendingPayload;

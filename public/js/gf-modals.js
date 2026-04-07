@@ -70,26 +70,50 @@ function gfEditorOpenUrl(){
 
 /* ══════════ 2. ЗМІНА СТАТУСУ (з причиною) ══════════ */
 
-var GF_REJECT_REASONS=['Не наша географія','Не наш тип заявника','Не наша тематика',
-  'Не підходимо за кількістю населення','Потрібен партнер','Складні вимоги',
-  'Дедлайн минув','Недостатня сума','Дублікат','Інше'];
+
+/* Виділений текст → в коментар при відкритті модалки */
+window.GF_LAST_SELECTION = '';
+document.addEventListener('selectionchange', function() {
+  var s = window.getSelection ? window.getSelection().toString().trim() : '';
+  /* Зберігаємо тільки якщо є текст — клік без виділення не скидає */
+  if (s.length > 1) window.GF_LAST_SELECTION = s;
+});
+
+var GF_REJECT_REASONS=(function(){
+  var r=['Крайня дата минула','Не наша географія','Не наш тип заявника','Не наша тематика',
+    'Не підходимо за кількістю населення','Потрібен партнер','Складні вимоги',
+    'Недостатня сума','Дублікат'];
+  r.sort(function(a,b){return a.localeCompare(b,'uk');});
+  return ['Інше'].concat(r);
+})();
 var GF_APPROVE_REASONS=['Підходить за темою','Підходить за заявниками','Підходить за дедлайном',
   'Корисний запис','Інше'];
 
-function gfOpenStatusModal(id,status){
+function gfOpenStatusModal(id,status,hintReason){
   var m=gfId('gfStatusModal');if(!m)return;
   gfId('gfs-id').value=id;
   gfId('gfs-status').value=status;
-  gfId('gfs-comment').value='';
   var isReject=status==='Не підходить'||status==='Видалено первинно';
+  /* Виділений текст → в коментар (тільки для відхилення) */
+  var _sel = window.GF_LAST_SELECTION || '';
+  window.GF_LAST_SELECTION = '';
+  gfId('gfs-comment').value = (isReject && _sel) ? _sel : '';
   var reasons=isReject?GF_REJECT_REASONS:GF_APPROVE_REASONS;
   var sel=gfId('gfs-reason');
   sel.innerHTML=reasons.map(function(r){return'<option value="'+gfE(r)+'">'+gfE(r)+'</option>';}).join('');
-  gfId('gfStatusTitle').textContent=isReject?'Чому не підходить?':'Позначити корисним';
-  m.classList.remove('hidden');
+  /* Автовибір причини */
+  if (hintReason) {
+    var _sel2 = gfId('gfs-reason');
+    if (_sel2) for (var _i = 0; _i < _sel2.options.length; _i++) {
+      if (_sel2.options[_i].value === hintReason) { _sel2.selectedIndex = _i; break; }
+    }
+  }
+  gfId('gfStatusTitle').textContent = isReject ? 'Чому не підходить?' : 'Позначити корисним';
+  m.style.display='block';
+  setTimeout(function(){ var t=gfId('gfs-comment'); if(t)t.focus(); }, 60);
 }
 
-function gfCloseStatusModal(){var m=gfId('gfStatusModal');if(m)m.classList.add('hidden');}
+function gfCloseStatusModal(){var m=gfId('gfStatusModal');if(m)m.style.display='none';var c=gfId('gfs-comment');if(c)c.value='';window.GF_LAST_SELECTION='';}
 
 async function gfSubmitStatus(){
   var id=(gfId('gfs-id')||{}).value;
@@ -121,7 +145,7 @@ function gfOpenSourceForm(sourceId){
   var defaults={source_name:'',source_url:'https://',source_type:'page',parser_mode:'page_links',
     source_status:'active',source_priority:'high',source_topics:'',source_keywords:'',
     item_limit:'20',fetch_details:'true',first_scan_mode:'true',link_include:'',link_exclude:'',
-    donor_hint:'',geography_hint:'',applicants_hint:'',scan_window_days:'7',notes:''};
+    donor_hint:'',geography_hint:'',applicants_hint:'',scan_window_days:'7',scan_interval_min:'1',notes:''};
   var data=Object.assign({},defaults);
   if(sourceId){
     var src=(GF.data.sources||[]).find(function(s){return(s._id||s.source_id)===sourceId;});
@@ -131,7 +155,8 @@ function gfOpenSourceForm(sourceId){
   gfId('gfsf-id').value=sourceId||'';
   var fields=['source_name','source_url','source_type','parser_mode','source_status',
     'source_priority','source_topics','source_keywords','item_limit','link_include',
-    'link_exclude','donor_hint','geography_hint','applicants_hint','scan_window_days','notes'];
+    'link_exclude','donor_hint','geography_hint','applicants_hint','scan_window_days',
+    'scan_interval_min','notes'];
   fields.forEach(function(f){
     var el=gfId('gfsf-'+f);
     if(!el)return;
@@ -150,7 +175,8 @@ async function gfSaveSourceForm(){
   var payload={};
   var fields=['source_name','source_url','source_type','parser_mode','source_status',
     'source_priority','source_topics','source_keywords','item_limit','link_include',
-    'link_exclude','donor_hint','geography_hint','applicants_hint','scan_window_days','notes'];
+    'link_exclude','donor_hint','geography_hint','applicants_hint','scan_window_days',
+    'scan_interval_min','notes'];
   fields.forEach(function(f){
     var el=gfId('gfsf-'+f);if(el)payload[f]=el.value||'';
   });

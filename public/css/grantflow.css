@@ -179,3 +179,52 @@
 #grantflowRoot ::-webkit-scrollbar-track{background:transparent}
 #grantflowRoot ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px}
 #grantflowRoot ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.18)}
+
+/* ═══ Status modal — темна тема (select, textarea, backdrop block) ═══ */
+#gfStatusModal{
+  pointer-events:auto;
+}
+#gfStatusModal .gf-modal-box{
+  background:var(--bg2);
+  border:1px solid rgba(255,255,255,.1);
+  color:var(--text);
+}
+#gfStatusModal h3,
+#gfStatusModal label{
+  color:var(--text);
+}
+#gfStatusModal select,
+#gfStatusModal textarea{
+  background:#1e293b !important;
+  color:var(--text) !important;
+  border:1px solid rgba(255,255,255,.12) !important;
+  border-radius:8px;
+}
+#gfStatusModal select option{
+  background:#1e293b;
+  color:var(--text);
+}
+
+/* ═══ Всі модалки — блокуємо кліки за межами box ═══ */
+.gf-modal{
+  pointer-events:auto;
+  user-select:none;
+}
+.gf-modal-box{
+  user-select:text;
+}
+/* select та textarea в модалках — дозволяємо взаємодію, блокуємо випадкове виділення */
+.gf-modal select,
+.gf-modal textarea,
+.gf-modal input{
+  user-select:text;
+  -webkit-user-select:text;
+}
+
+/* ═══ Stat cards cursor ═══ */
+.gf-stat[onclick]{cursor:pointer;}
+.gf-stat[onclick]:hover{
+  border-color:var(--border-h);
+  transform:translateY(-2px);
+  box-shadow:0 6px 20px rgba(79,110,247,.18);
+}

@@ -447,16 +447,18 @@ function renderCards() {
   var cardCount = allItems.filter(function(i){return i.type==='card'}).length;
   var shown = 0;
   var h = '';
+  var inSS = false;
   allItems.forEach(function(item) {
     if (item.type === 'header') {
+      if (inSS) h += '</div>';
       h += '<div class="sec"><h2' + (item.color ? ' style="color:'+item.color+'"' : '') + '>' + item.text + '</h2><span class="cnt"' + (item.color ? ' style="background:'+item.color+'"' : '') + '>' + item.count + '</span></div><div class="ss">';
+      inSS = true;
     } else {
       shown++;
       if (shown <= limit) h += cH(item.doc, item.big);
     }
   });
-  // Close unclosed ss divs
-  h += '</div>';
+  if (inSS) h += '</div>';
 
   if (_grpR.groups && _grpR.groups.length) {
     h += '<div class="sec"><h2 style="color:var(--acc2)">Один №вх — кілька завдань</h2><span class="cnt" style="background:var(--acc2)">' + _grpR.groups.length + '</span></div><div class="ss">';

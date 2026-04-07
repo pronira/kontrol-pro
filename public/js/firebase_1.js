@@ -54,7 +54,7 @@ function docToRow(doc) {
     recurring: d.recurring || '',
     periodEnd: d.periodEnd_str || tsToStr(d.periodEnd) || '',
     parentId: d.parentId ? (String(d.parentId).indexOf('ctrl_') === 0 ? d.parentId : 'ctrl_' + String(d.parentId).padStart(4, '0')) : '',
-    done: d.done ? true : false,
+    done: d.done || false,
     docLink: d.docLink || '',
     respLink: d.respLink || '',
     doneDate: d.doneDate_str || tsToStr(d.doneDate) || '',
@@ -265,7 +265,7 @@ async function fbAddDoc(p) {
     recurring: p.recurring || '\u041d\u0456',
     periodEnd: strToTs(p.periodEnd),
     periodEnd_str: p.periodEnd || '',
-    parentId: p.parentId ? (String(p.parentId).indexOf('ctrl_') === 0 ? p.parentId : (parseInt(p.parentId) || 0)) : 0,
+    parentId: p.parentId ? parseInt(p.parentId) : 0,
     done: false,
     docLink: p.docLink || '',
     respLink: p.respLink || '',
@@ -347,13 +347,27 @@ async function fbDelDoc(p) {
 async function fbMarkDone(p) {
   var now = new Date();
   var dateStr = p2(now.getDate())+'.'+p2(now.getMonth()+1)+'.'+now.getFullYear();
-  await db.collection('controls').doc(p.row).update({
-    done: true,
+  var doneVal = p.doneText || 'виконано';
+  // Build done date string
+  var doneDateStr = p.doneDate || dateStr;
+  var upd = {
+    done: doneVal,
     doneDate: firebase.firestore.Timestamp.fromDate(now),
-    doneDate_str: dateStr,
+    doneDate_str: doneDateStr,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    log: firebase.firestore.FieldValue.arrayUnion({date: now.toLocaleString('uk-UA'), user: (CUR_USER ? CUR_USER.login : ''), action: '\u0412\u0438\u043a\u043e\u043d\u0430\u043d\u043e'})
-  });
+    log: firebase.firestore.FieldValue.arrayUnion({date: now.toLocaleString('uk-UA'), user: (CUR_USER ? CUR_USER.login : ''), action: doneVal})
+  };
+  if (p.respNum !== undefined) upd.respNum = p.respNum;
+  if (p.respLink !== undefined) upd.respLink = p.respLink;
+  if (p.note !== undefined) upd.notes = p.note;
+  // Upload file if provided
+  if (p.fileData && p.fileName) {
+    try {
+      var fileRes = await fbUploadFile({fileName:p.fileName, fileType:p.fileType||'application/octet-stream', fileData:p.fileData});
+      if (fileRes.fileUrl) upd.respLink = fileRes.fileUrl;
+    } catch(e) {}
+  }
+  await db.collection('controls').doc(p.row).update(upd);
   return {ok: true};
 }
 
@@ -479,7 +493,7 @@ async function fbUploadFile(p) {
 async function fbWriteLog(p) {
   await db.collection('activity_log').add({
     user: p.user || '',
-    action: p.logAction || p.action || '',
+    action: p.action || '',
     details: p.details || '',
     docRow: p.docRow || '',
     date: firebase.firestore.FieldValue.serverTimestamp(),

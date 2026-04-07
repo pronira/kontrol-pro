@@ -169,7 +169,7 @@ function rejectDelDoc(row) {
 /* ═══ ACTIVITY LOG ═══ */
 function logAction(action, details, docRow) {
   if (!CUR_USER) return;
-  apiP({action:'writeLog', user:CUR_USER.login, logAction:action, details:details, docRow:docRow||''}).catch(function(){});
+  apiP({action:'writeLog', user:CUR_USER.login, action:action, details:details, docRow:docRow||''}).catch(function(){});
 }
 
 

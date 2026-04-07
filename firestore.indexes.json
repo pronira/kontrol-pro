@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "gf_scan_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "source_id", "order": "ASCENDING"},
+        {"fieldPath": "scanned_at", "order": "DESCENDING"}
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

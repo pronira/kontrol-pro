@@ -134,6 +134,8 @@ function hasPerm(block, level) {
   // block: docs, orgs, comms, reports, settings, users, inbox, myday, calendar
   // level: read, create, edit, delete, full
   if (!CUR_USER) return false;
+  // Admin role has full access to everything
+  if (CUR_USER.role === 'admin') return true;
   var p = PERMS[block];
   if (p === 'full') return true;
   if (p === 'edit' && (level === 'read' || level === 'create' || level === 'edit')) return true;
@@ -145,17 +147,26 @@ function hasPerm(block, level) {
 
 function applyPermissions() {
   // Hide tabs based on permissions
-  // grantflow та myday та docs — завжди видимі для всіх авторизованих
+  // docs та myday — завжди видимі для всіх авторизованих
   var tabMap = {main:'docs', inbox:'inbox', myday:'myday', calendar:'calendar', orgs:'orgs', comms:'comms', reports:'reports', settings:'settings', grantflow:'grantflow'};
-  var alwaysVisible = ['docs', 'myday', 'grantflow'];
+  var alwaysVisible = ['docs', 'myday'];
   document.querySelectorAll('.nav-btn[data-t]').forEach(function(btn) {
     var t = btn.getAttribute('data-t');
     var block = tabMap[t] || t;
-    btn.style.display = '';
-    if (block === 'settings' && !hasPerm('settings', 'read')) {
+    if (alwaysVisible.indexOf(block) >= 0) {
+      btn.style.display = '';
+      return;
+    }
+    // Для адміна — все видиме
+    if (CUR_USER && CUR_USER.role === 'admin') {
+      btn.style.display = '';
+      return;
+    }
+    // Для решти — приховуємо якщо немає дозволу
+    if (!hasPerm(block, 'read')) {
       btn.style.display = 'none';
-    } else if (alwaysVisible.indexOf(block) === -1 && !hasPerm(block, 'read')) {
-      btn.style.display = 'none';
+    } else {
+      btn.style.display = '';
     }
   });
 }

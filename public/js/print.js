@@ -27,16 +27,17 @@ function printResolution(row) {
   });
 
   var w = window.open('', '_blank');
-  var css = 'body{font-family:Arial,sans-serif;margin:0;padding:15mm}' +
-    '.res{border:2px solid #000;padding:10mm;font-size:14px;min-height:calc(297mm - 50mm)}' +
-    '.res h3{font-size:20px;margin:0 0 6mm;text-align:center;border-bottom:2px solid #000;padding-bottom:4mm}' +
-    '.rf{margin:3mm 0;font-size:14px;line-height:1.5}' +
-    '.rf b{font-size:14px}' +
-    '.cd-tbl{width:100%;border-collapse:collapse;margin:5mm 0;font-size:13px}' +
-    '.cd-tbl td{border:1px solid #000;padding:3mm;vertical-align:top}' +
-    '.cd-tbl .cb{width:18px;height:18px;border:2px solid #000;display:inline-block;vertical-align:middle}' +
-    '.res-sign{display:flex;justify-content:space-between;margin-top:15mm;font-size:13px}' +
-    '@media print{@page{size:A4 portrait;margin:10mm}}';
+  var css = 'body{font-family:Arial,sans-serif;margin:0;padding:10mm 15mm}' +
+    '@page{size:A4 portrait;margin:10mm}' +
+    '.res{border:2px solid #000;padding:8mm 10mm;font-size:13px;min-height:calc(297mm - 40mm);box-sizing:border-box}' +
+    '.res h3{font-size:18px;margin:0 0 5mm;text-align:center;border-bottom:2px solid #000;padding-bottom:3mm;text-transform:uppercase;letter-spacing:1px}' +
+    '.rf{margin:2.5mm 0;font-size:13px;line-height:1.5}' +
+    '.rf b{font-size:13px}' +
+    '.cd-tbl{width:100%;border-collapse:collapse;margin:4mm 0;font-size:12px}' +
+    '.cd-tbl td{border:1px solid #000;padding:2.5mm;vertical-align:top}' +
+    '.cd-tbl .cb{width:16px;height:16px;border:2px solid #000;display:inline-block;vertical-align:middle}' +
+    '.res-sign{display:flex;justify-content:space-between;margin-top:12mm;font-size:12px}' +
+    '@media print{@page{size:A4 portrait;margin:10mm}.no-print{display:none!important}}';
 
   // Build dates table
   var tblH = '';

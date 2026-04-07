@@ -18,6 +18,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.3/Sortable.min.js"></script>
 <link rel="stylesheet" href="/css/styles.css">
 <link rel="stylesheet" href="/css/grantflow.css">
+<style>
+#gfStatusModal select option{background:#1e293b;color:#e2e8f0}
+</style>
 </head>
 <body>
 
@@ -247,7 +250,56 @@
 <script src="/js/init.js"></script>
 
 <!-- ═══════════════════════════════════════════════════════
-     GrantFlow HTML — вставити в index.html перед </body>
+     GrantFlow HTML — вставити в index.html перед 
+<script>
+(function(){
+  var el, handle, dragging=false, ox=0, oy=0, ex=0, ey=0;
+  function initDrag(){
+    el = document.getElementById('gfStatusModal');
+    handle = document.getElementById('gfStatusDragHandle');
+    if(!el||!handle||handle._dragInit) return;
+    handle._dragInit = true;
+    handle.addEventListener('mousedown', function(e){
+      if(e.target.tagName==='BUTTON') return;
+      dragging=true;
+      var r=el.getBoundingClientRect();
+      ox=e.clientX-r.left; oy=e.clientY-r.top;
+      // Переводимо з transform до left/top
+      el.style.transform='none';
+      el.style.left=r.left+'px';
+      el.style.top=r.top+'px';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', function(e){
+      if(!dragging) return;
+      el.style.left=(e.clientX-ox)+'px';
+      el.style.top=(e.clientY-oy)+'px';
+    });
+    document.addEventListener('mouseup', function(){ dragging=false; });
+  }
+  // Ініціалізуємо після кожного відкриття модалки
+  var _orig = window.gfOpenStatusModal;
+  if(_orig) {
+    window.gfOpenStatusModal = function(){
+      _orig.apply(this, arguments);
+      setTimeout(initDrag, 50);
+    };
+  } else {
+    // Якщо ще не завантажено — чекаємо
+    document.addEventListener('DOMContentLoaded', function(){
+      setTimeout(function(){
+        var _o = window.gfOpenStatusModal;
+        if(_o) window.gfOpenStatusModal = function(){
+          _o.apply(this, arguments);
+          setTimeout(initDrag, 50);
+        };
+      }, 500);
+    });
+  }
+})();
+</script>
+
+</body>
      ═══════════════════════════════════════════════════════ -->
 
 <div id="grantflowRoot" class="hidden" style="display:none">
@@ -302,7 +354,7 @@
           <div class="gf-field"><label>Заголовок</label><input id="gfe-title"></div>
           <div class="gf-field"><label>Загальний опис</label><textarea id="gfe-desc" style="min-height:120px"></textarea></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <div class="gf-field"><label>Дедлайн</label><input id="gfe-deadline"></div>
+            <div class="gf-field"><label>Крайня дата</label><input id="gfe-deadline"></div>
             <div class="gf-field"><label>Сума гранту</label><input id="gfe-amount"></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -324,6 +376,7 @@
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
             <button class="gf-btn" onclick="gfSaveEditor()">💾 Зберегти</button>
             <button class="gf-btn o" onclick="gfEditorOpenUrl()">↗ Відкрити сайт</button>
+            <button class="gf-btn r" title="Не підходить — відхилити" onclick="gfEditorReject()">✕ Не підходить</button>
             <button class="gf-btn o" onclick="gfCloseEditor()">Скасувати</button>
           </div>
         </div>
@@ -337,16 +390,24 @@
   </div>
 
   <!-- ══════ STATUS MODAL ══════ -->
-  <div id="gfStatusModal" class="gf-modal hidden">
-    <div class="gf-modal-box" style="max-width:500px">
-      <button class="gf-modal-close" onclick="gfCloseStatusModal()">✕</button>
-      <h3 id="gfStatusTitle" style="margin:0 0 14px">Зміна статусу</h3>
+  <div id="gfStatusModal" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:20000;pointer-events:auto;display:none">
+    <div style="width:460px;max-width:96vw;background:#0f172a;border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:22px 24px;box-shadow:0 24px 64px rgba(0,0,0,.8);color:#e2e8f0;font-family:Geologica,system-ui,sans-serif">
+      <div id="gfStatusDragHandle" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;cursor:move;user-select:none">
+        <h3 id="gfStatusTitle" style="margin:0;font-size:15px;font-weight:700;color:#e2e8f0">Зміна статусу</h3>
+        <button onclick="gfCloseStatusModal()" style="background:#ef4444;border:none;color:#fff;border-radius:8px;padding:5px 12px;cursor:pointer;font-weight:700;font-size:14px">✕</button>
+      </div>
       <input type="hidden" id="gfs-id"><input type="hidden" id="gfs-status">
-      <div class="gf-field"><label>Причина</label><select id="gfs-reason"></select></div>
-      <div class="gf-field"><label>Коментар</label><textarea id="gfs-comment" style="min-height:100px"></textarea></div>
-      <div style="display:flex;gap:6px;margin-top:10px">
-        <button class="gf-btn" onclick="gfSubmitStatus()">Підтвердити</button>
-        <button class="gf-btn o" onclick="gfCloseStatusModal()">Скасувати</button>
+      <div style="margin-bottom:12px">
+        <label style="display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Причина</label>
+        <select id="gfs-reason" style="width:100%;padding:10px 12px;background:#1e293b;color:#e2e8f0;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:13px;cursor:pointer;outline:none"></select>
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Коментар <span style="color:#4f6ef7;font-size:9px;text-transform:none;font-weight:400">(виділіть текст ДО відкриття — підставиться автоматично)</span></label>
+        <textarea id="gfs-comment" rows="4" style="width:100%;padding:10px 12px;background:#1e293b;color:#e2e8f0;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:13px;resize:vertical;outline:none;font-family:inherit;line-height:1.5"></textarea>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="gfSubmitStatus()" style="background:#4f6ef7;border:none;color:#fff;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer">Підтвердити</button>
+        <button onclick="gfCloseStatusModal()" style="background:transparent;border:1px solid rgba(255,255,255,.12);color:#94a3b8;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer">Скасувати</button>
       </div>
     </div>
   </div>
@@ -366,10 +427,11 @@
         <div class="gf-field"><label>Парсинг</label><select id="gfsf-parser_mode"><option value="page_links">Список посилань</option><option value="page_single">Одна сторінка</option><option value="rss">RSS</option><option value="telegram">Telegram HTML</option><option value="google_news_rss">Google News</option></select></div>
         <div class="gf-field"><label>Пріоритет</label><select id="gfsf-source_priority"><option value="critical">Критично</option><option value="high">Високий</option><option value="medium">Середній</option><option value="low">Низький</option></select></div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
         <div class="gf-field"><label>Статус</label><select id="gfsf-source_status"><option value="active">Активне</option><option value="paused">Пауза</option></select></div>
-        <div class="gf-field"><label>Макс записів</label><input id="gfsf-item_limit" type="number" min="1" max="50"></div>
-        <div class="gf-field"><label>Вікно (днів)</label><select id="gfsf-scan_window_days"><option value="3">3</option><option value="7">7</option><option value="14">14</option><option value="30">30</option></select></div>
+        <div class="gf-field"><label>Макс нових за скан</label><input id="gfsf-item_limit" type="number" min="1" max="50" title="Скільки нових записів додавати за один скан"></div>
+        <div class="gf-field"><label>Вікно (днів)</label><select id="gfsf-scan_window_days" title="Скільки днів назад шукати публікації"><option value="3">3 дні</option><option value="7">7 днів</option><option value="14">14 днів</option><option value="30">30 днів</option><option value="60">60 днів</option></select></div>
+        <div class="gf-field"><label>Інтервал (хв)</label><select id="gfsf-scan_interval_min" title="Як часто сканувати це джерело"><option value="1">Кожну хв</option><option value="5">Кожні 5 хв</option><option value="15">Кожні 15 хв</option><option value="30">Кожні 30 хв</option><option value="60">Кожну год</option><option value="360">Кожні 6 год</option><option value="1440">Раз на день</option></select></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="gf-field"><label>Тематики</label><input id="gfsf-source_topics" placeholder="через кому"><button class="gf-btn sm o" style="margin-top:4px" onclick="gfOpenPicker('source_topics')">Обрати</button></div>
@@ -411,6 +473,55 @@
   </div>
 </div>
 
+
+
+<script>
+(function(){
+  var el, handle, dragging=false, ox=0, oy=0, ex=0, ey=0;
+  function initDrag(){
+    el = document.getElementById('gfStatusModal');
+    handle = document.getElementById('gfStatusDragHandle');
+    if(!el||!handle||handle._dragInit) return;
+    handle._dragInit = true;
+    handle.addEventListener('mousedown', function(e){
+      if(e.target.tagName==='BUTTON') return;
+      dragging=true;
+      var r=el.getBoundingClientRect();
+      ox=e.clientX-r.left; oy=e.clientY-r.top;
+      // Переводимо з transform до left/top
+      el.style.transform='none';
+      el.style.left=r.left+'px';
+      el.style.top=r.top+'px';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', function(e){
+      if(!dragging) return;
+      el.style.left=(e.clientX-ox)+'px';
+      el.style.top=(e.clientY-oy)+'px';
+    });
+    document.addEventListener('mouseup', function(){ dragging=false; });
+  }
+  // Ініціалізуємо після кожного відкриття модалки
+  var _orig = window.gfOpenStatusModal;
+  if(_orig) {
+    window.gfOpenStatusModal = function(){
+      _orig.apply(this, arguments);
+      setTimeout(initDrag, 50);
+    };
+  } else {
+    // Якщо ще не завантажено — чекаємо
+    document.addEventListener('DOMContentLoaded', function(){
+      setTimeout(function(){
+        var _o = window.gfOpenStatusModal;
+        if(_o) window.gfOpenStatusModal = function(){
+          _o.apply(this, arguments);
+          setTimeout(initDrag, 50);
+        };
+      }, 500);
+    });
+  }
+})();
+</script>
 
 </body>
 </html>
