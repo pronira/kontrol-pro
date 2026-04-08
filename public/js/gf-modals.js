@@ -70,50 +70,32 @@ function gfEditorOpenUrl(){
 
 /* ══════════ 2. ЗМІНА СТАТУСУ (з причиною) ══════════ */
 
-
-/* Виділений текст → в коментар при відкритті модалки */
-window.GF_LAST_SELECTION = '';
-document.addEventListener('selectionchange', function() {
-  var s = window.getSelection ? window.getSelection().toString().trim() : '';
-  /* Зберігаємо тільки якщо є текст — клік без виділення не скидає */
-  if (s.length > 1) window.GF_LAST_SELECTION = s;
-});
-
-var GF_REJECT_REASONS=(function(){
-  var r=['Крайня дата минула','Не наша географія','Не наш тип заявника','Не наша тематика',
-    'Не підходимо за кількістю населення','Потрібен партнер','Складні вимоги',
-    'Недостатня сума','Дублікат'];
-  r.sort(function(a,b){return a.localeCompare(b,'uk');});
-  return ['Інше'].concat(r);
-})();
+var GF_REJECT_REASONS=['Не наша географія','Не наш тип заявника','Не наша тематика',
+  'Не підходимо за кількістю населення','Потрібен партнер','Складні вимоги',
+  'Дедлайн минув','Недостатня сума','Дублікат','Інше'];
 var GF_APPROVE_REASONS=['Підходить за темою','Підходить за заявниками','Підходить за дедлайном',
   'Корисний запис','Інше'];
 
-function gfOpenStatusModal(id,status,hintReason){
+function gfOpenStatusModal(id,status){
   var m=gfId('gfStatusModal');if(!m)return;
   gfId('gfs-id').value=id;
   gfId('gfs-status').value=status;
+  // Авто-вставка виділеного тексту в коментар
+  var selected=window.getSelection?window.getSelection().toString().trim():'';
+  gfId('gfs-comment').value=selected||'';
   var isReject=status==='Не підходить'||status==='Видалено первинно';
-  /* Виділений текст → в коментар (тільки для відхилення) */
-  var _sel = window.GF_LAST_SELECTION || '';
-  window.GF_LAST_SELECTION = '';
-  gfId('gfs-comment').value = (isReject && _sel) ? _sel : '';
   var reasons=isReject?GF_REJECT_REASONS:GF_APPROVE_REASONS;
+  // Сортуємо причини за алфавітом
+  var sorted=reasons.slice().sort(function(a,b){return a.localeCompare(b,'uk');});
   var sel=gfId('gfs-reason');
-  sel.innerHTML=reasons.map(function(r){return'<option value="'+gfE(r)+'">'+gfE(r)+'</option>';}).join('');
-  /* Автовибір причини */
-  if (hintReason) {
-    var _sel2 = gfId('gfs-reason');
-    if (_sel2) for (var _i = 0; _i < _sel2.options.length; _i++) {
-      if (_sel2.options[_i].value === hintReason) { _sel2.selectedIndex = _i; break; }
-    }
-  }
-  gfId('gfStatusTitle').textContent = isReject ? 'Чому не підходить?' : 'Позначити корисним';
-  m.style.display='block';
-  setTimeout(function(){ var t=gfId('gfs-comment'); if(t)t.focus(); }, 60);
+  sel.innerHTML=sorted.map(function(r){return'<option value="'+gfE(r)+'">'+gfE(r)+'</option>';}).join('');
+  gfId('gfStatusTitle').textContent=isReject?'🚫 Чому не підходить?':'✅ Позначити корисним';
+  m.classList.remove('hidden');
+  // Фокус на коментар якщо є виділений текст, інакше на список причин
+  setTimeout(function(){ (selected?gfId('gfs-comment'):sel).focus(); }, 50);
 }
 
-function gfCloseStatusModal(){var m=gfId('gfStatusModal');if(m)m.style.display='none';var c=gfId('gfs-comment');if(c)c.value='';window.GF_LAST_SELECTION='';}
+function gfCloseStatusModal(){var m=gfId('gfStatusModal');if(m)m.classList.add('hidden');}
 
 async function gfSubmitStatus(){
   var id=(gfId('gfs-id')||{}).value;
@@ -133,9 +115,9 @@ async function gfSubmitStatus(){
     }
     gfCloseStatusModal(); gfCloseEditor(); gfRender();
     await gfSetDetectedStatus(id,status,reason,comment);
-    await gfLog('detected',id,'status_change','',status,reason+' '+comment);
+    try { await gfLog('detected',id,'status_change','',status,reason+' '+comment); } catch(le){ console.warn('log error:',le); }
     gfToast(status==='Корисне'?'✓ Корисне':'✕ Відхилено', status==='Корисне'?'var(--green)':'var(--red)');
-  }catch(e){alert('Помилка: '+e.message);await gfRefresh();}
+  }catch(e){gfToast('❌ '+e.message,'var(--red)');console.error('status error:',e);await gfRefresh();}
 }
 
 /* ══════════ 3. ФОРМА ДЖЕРЕЛА ══════════ */
@@ -145,7 +127,7 @@ function gfOpenSourceForm(sourceId){
   var defaults={source_name:'',source_url:'https://',source_type:'page',parser_mode:'page_links',
     source_status:'active',source_priority:'high',source_topics:'',source_keywords:'',
     item_limit:'20',fetch_details:'true',first_scan_mode:'true',link_include:'',link_exclude:'',
-    donor_hint:'',geography_hint:'',applicants_hint:'',scan_window_days:'7',scan_interval_min:'1',notes:''};
+    donor_hint:'',geography_hint:'',applicants_hint:'',scan_window_days:'7',notes:''};
   var data=Object.assign({},defaults);
   if(sourceId){
     var src=(GF.data.sources||[]).find(function(s){return(s._id||s.source_id)===sourceId;});
@@ -155,8 +137,7 @@ function gfOpenSourceForm(sourceId){
   gfId('gfsf-id').value=sourceId||'';
   var fields=['source_name','source_url','source_type','parser_mode','source_status',
     'source_priority','source_topics','source_keywords','item_limit','link_include',
-    'link_exclude','donor_hint','geography_hint','applicants_hint','scan_window_days',
-    'scan_interval_min','notes'];
+    'link_exclude','donor_hint','geography_hint','applicants_hint','scan_window_days','notes'];
   fields.forEach(function(f){
     var el=gfId('gfsf-'+f);
     if(!el)return;
@@ -175,8 +156,7 @@ async function gfSaveSourceForm(){
   var payload={};
   var fields=['source_name','source_url','source_type','parser_mode','source_status',
     'source_priority','source_topics','source_keywords','item_limit','link_include',
-    'link_exclude','donor_hint','geography_hint','applicants_hint','scan_window_days',
-    'scan_interval_min','notes'];
+    'link_exclude','donor_hint','geography_hint','applicants_hint','scan_window_days','notes'];
   fields.forEach(function(f){
     var el=gfId('gfsf-'+f);if(el)payload[f]=el.value||'';
   });

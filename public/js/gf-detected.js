@@ -136,8 +136,8 @@ function gfDetList(items){
       +'<input type="checkbox" class="gf-bulk-chk" data-id="'+gfE(did)+'" id="gfchk_'+gfE(did)+'" onclick="gfToggleBulk(\''+gfE(did)+'\')"'+(GF_BULK[did]?' checked':'')+' style="width:16px;height:16px;cursor:pointer">'
       +(url?'<button class="gf-btn sm o" onclick="window.open(\''+gfE(url)+'\',\'_blank\')">Відкрити</button>':'')
       +'<button class="gf-btn sm o" onclick="gfOpenEditor(\''+gfE(did)+'\')">✏️ Редагувати</button>'
-      +'<button class="gf-btn sm g" onclick="gfDetStatus(\''+gfE(did)+'\',\'Корисне\')">✓ Корисне</button>'
-      +'<button class="gf-btn sm r" onclick="gfDetStatus(\''+gfE(did)+'\',\'Не підходить\')">✕ Не підходить</button>'
+      +'<button class="gf-btn sm g" onclick="gfOpenStatusModal(\''+gfE(did)+'\',\'Корисне\')">✓ Корисне</button>'
+      +'<button class="gf-btn sm r" onclick="gfOpenStatusModal(\''+gfE(did)+'\',\'Не підходить\')">✕ Не підходить</button>'
       +'</div></div>';
   });
   return h+'</div>';
