@@ -247,14 +247,17 @@ async function gfLog(eType, eId, action, oldSt, newSt, notes) {
 
 /* ── Aggregated overview data ── */
 async function gfLoadAll() {
-  // Паралельно читаємо: останні 1000 detected (для UI), джерела, опції і лічильник статистики
+  // Паралельно читаємо: detected, джерела, stats, daily_history
   var res = await Promise.all([
     gfGetDetected(1000), gfGetSources(), gfAll(GFC.archive), gfGetOpps(),
     gfAll(GFC.approvals), gfAll(GFC.assigns), gfAll(GFC.tasks),
-    gfAll(GFC.notifs), gfAll(GFC.contacts), gfGetStats()
+    gfAll(GFC.notifs), gfAll(GFC.contacts), gfGetStats(),
+    gfDoc(GFC.settings, 'daily_history')
   ]);
   var det=res[0], src=res[1], arch=res[2], opp=res[3],
-      apr=res[4], asg=res[5], tsk=res[6], ntf=res[7], cnt=res[8], sts=res[9];
+      apr=res[4], asg=res[5], tsk=res[6], ntf=res[7], cnt=res[8], sts=res[9], dh=res[10];
+  // Зберігаємо daily_history в GF для огляду
+  if (typeof GF !== 'undefined') GF._dailyHistory = dh ? (dh.days || []) : [];
 
   var actSrc = src.filter(function(s){ return s.source_status==='active'; });
   var rejSt = ['Не підходить','Видалено первинно'];

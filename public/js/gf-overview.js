@@ -11,29 +11,28 @@ function gfViewOverview(){
   var newActive = o.pendingReview !== undefined ? o.pendingReview : det.filter(function(d){return !d.status||d.status==='Виявлено';}).length;
 
   /* Metrics */
+  // Лічильник знайдених вчора з daily_history
+  var foundYesterday = 0;
+  if (GF._dailyHistory && GF._dailyHistory.length > 0) {
+    var yesterday = new Date(Date.now()-864e5).toISOString().slice(0,10);
+    var yEntry = GF._dailyHistory.find(function(d){return d.date===yesterday;});
+    if (yEntry) foundYesterday = yEntry.count || 0;
+  }
+
   var m=[
-    {l:'Нових сьогодні',v:newToday,c:newToday?'g':'',bg:'var(--green)'},
-    {l:'Очікують перегляду',v:newActive,c:'a',bg:'var(--accent)'},
-    {l:'Активних джерел',v:o.activeSources,c:'g',bg:'var(--green)'},
-    {l:'У базі',v:o.oppCount,c:'',bg:'var(--accent)'},
-    {l:'Відхилено',v:o.deletedTotal,c:'r',bg:'var(--red)'},
-    {l:'На погодженні',v:o.pendingApprovals,c:'',bg:'var(--yellow)'},
-    {l:'Пріоритетних',v:o.highPriority,c:'g',bg:'var(--green)'},
-    {l:'Всього знайдено',v:o.detectedCount,c:'',bg:'var(--accent)'}
+    {l:'Нових сьогодні',v:newToday,c:newToday?'g':''},
+    {l:'Знайдено вчора',v:foundYesterday,c:foundYesterday?'g':''},
+    {l:'Очікують перегляду',v:newActive,c:'a'},
+    {l:'Активних джерел',v:o.activeSources,c:'g'},
+    {l:'У базі',v:o.oppCount,c:''},
+    {l:'Відхилено',v:o.deletedTotal,c:'r'},
+    {l:'На погодженні',v:o.pendingApprovals,c:''},
+    {l:'Всього знайдено',v:o.detectedCount,c:''}
   ];
-  // Карти статистики — кліком переходимо до відповідного списку
-  var statViews={
-    'Нових сьогодні':'new','Очікують перегляду':'new','У базі':'base',
-    'Відхилено':'rejected','На погодженні':'review','Пріоритетних':'new'
-  };
+  // Карти статистики — тільки інформаційні, без кліку
   var mh='<div class="gf-stats">';
   m.forEach(function(x){
-    var view=statViews[x.l]||'all';
-    var clickable=statViews[x.l]?'cursor:pointer;' : '';
-    var onclick=statViews[x.l]
-      ?'onclick="GF.detectedView=\''+view+'\';gfGo(\'detected\')" title="Перейти до списку"'
-      :'';
-    mh+='<div class="gf-stat" style="'+clickable+'" '+onclick+'>'
+    mh+='<div class="gf-stat">'
       +'<div class="gf-stat-lbl">'+gfE(x.l)+'</div>'
       +'<div class="gf-stat-val'+(x.c?' '+x.c:'')+'">'+(x.v||0)+'</div></div>';
   });
@@ -69,16 +68,12 @@ function gfUpcomingDeadlinesPanel(det){
   upcoming.forEach(function(d){
     var days=gfDaysLeft(d.deadline);
     var urgency=days<=3?'border-left:4px solid var(--red)':days<=7?'border-left:4px solid var(--yellow)':'border-left:4px solid var(--accent)';
-    var did2=d._id||d.detected_id||'';
-    h+='<div class="gf-item" style="padding:10px 14px;'+urgency+';cursor:pointer" onclick="gfGo(\'detected\')">'
+    h+='<div class="gf-item" style="padding:10px 14px;'+urgency+'">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
       +'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+gfE((d.raw_title||'').slice(0,60))+'</div>'
       +'<div class="gf-muted" style="font-size:11px">'+gfE(d.donor||d.source_name||'')+'</div></div>'
-      +'<div style="display:flex;gap:4px;align-items:center">'
       +gfDeadlineBadge(d.deadline)
-      +(did2?'<button class="gf-btn sm g" onclick="event.stopPropagation();gfOpenStatusModal(\''+did2+'\',\'Корисне\')" title="Корисне">✓</button>'
-            +'<button class="gf-btn sm r" onclick="event.stopPropagation();gfOpenStatusModal(\''+did2+'\',\'Не підходить\')" title="Не підходить">✕</button>':'')
-      +'</div></div></div>';
+      +'</div></div>';
   });
   return h+'</div></div>';
 }

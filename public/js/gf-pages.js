@@ -115,9 +115,99 @@ function gfViewContacts(){
 
 /* ── Користувачі ── */
 function gfViewUsers(){
-  /* Users from Kontroli's global fbGetUsers if available, otherwise placeholder */
-  return '<div class="gf-panel"><div class="gf-panel-h"><h3>Користувачі</h3></div>'
-    +'<div class="gf-empty">Управління користувачами — через Контролі (розділ Налаштування).</div></div>';
+  var isAdmin=typeof CUR_USER!=='undefined'&&CUR_USER&&CUR_USER.role==='admin';
+  var h='<div class="gf-panel"><div class="gf-panel-h"><h3>Користувачі</h3>'
+    +(isAdmin?'<button class="gf-btn sm" onclick="gfOpenAddUser()">+ Додати</button>':'')
+    +'</div>';
+  if(!GF._users||!GF._users.length){
+    h+='<div class="gf-empty">Завантаження...</div></div>';
+    gfLoadUsers();
+    return h;
+  }
+  var ROLE_LABELS={admin:'Адміністратор',grantflow:'GrantFlow (тільки)',user:'Користувач',viewer:'Переглядач'};
+  h+='<div class="gf-tw"><table class="gf-t"><thead><tr><th>ПІБ</th><th>Логін/Email</th><th>Роль</th><th>Статус</th>'+(isAdmin?'<th></th>':'')+'</tr></thead><tbody>';
+  (GF._users||[]).forEach(function(u){
+    var roleLabel=ROLE_LABELS[u.role]||u.role||'—';
+    var statusBadge=u.status==='active'
+      ?'<span class="gf-badge green">Активний</span>'
+      :'<span class="gf-badge gray">Заблокований</span>';
+    var uid=gfE(u._id||u.row||'');
+    h+='<tr>'
+      +'<td>'+gfE(u.name||'—')+'</td>'
+      +'<td>'+gfE(u.login||u.email||'—')+'</td>'
+      +'<td>'+gfE(roleLabel)+'</td>'
+      +'<td>'+statusBadge+'</td>'
+      +(isAdmin?'<td><button class="gf-btn sm o" onclick="gfOpenEditUser(\''+uid+'\')">✏️</button></td>':'')
+      +'</tr>';
+  });
+  h+='</tbody></table></div></div>';
+  return h;
+}
+
+async function gfLoadUsers(){
+  try{
+    var snap=await db.collection('users').orderBy('name').get();
+    GF._users=[];
+    snap.forEach(function(d){GF._users.push(Object.assign({_id:d.id},d.data()));});
+    if(GF.tab==='users') gfRender();
+  }catch(e){console.warn('gfLoadUsers',e);}
+}
+
+function gfOpenAddUser(){
+  var m=gfId('gfUserModal'); if(!m) return;
+  gfId('gfum-id').value='';
+  gfId('gfum-login').value=''; gfId('gfum-login').disabled=false;
+  gfId('gfum-pass').value=''; gfId('gfum-pass').placeholder='Пароль';
+  gfId('gfum-name').value='';
+  gfId('gfum-role').value='viewer';
+  gfId('gfum-status').value='active';
+  gfId('gfUserModalTitle').textContent='Новий користувач';
+  m.classList.remove('hidden');
+}
+
+function gfOpenEditUser(id){
+  var u=(GF._users||[]).find(function(x){return (x._id||x.row)===id;});
+  if(!u) return;
+  var m=gfId('gfUserModal'); if(!m) return;
+  gfId('gfum-id').value=id;
+  gfId('gfum-login').value=u.login||u.email||''; gfId('gfum-login').disabled=true;
+  gfId('gfum-pass').value=''; gfId('gfum-pass').placeholder='(порожньо = не змінювати)';
+  gfId('gfum-name').value=u.name||'';
+  gfId('gfum-role').value=u.role||'viewer';
+  gfId('gfum-status').value=u.status||'active';
+  gfId('gfUserModalTitle').textContent='Редагування: '+gfE(u.name||'');
+  m.classList.remove('hidden');
+}
+
+function gfCloseUserModal(){
+  var m=gfId('gfUserModal'); if(m) m.classList.add('hidden');
+}
+
+async function gfSaveUserModal(){
+  var id=gfId('gfum-id').value.trim();
+  var login=gfId('gfum-login').value.trim();
+  var pass=gfId('gfum-pass').value;
+  var name=gfId('gfum-name').value.trim();
+  var role=gfId('gfum-role').value;
+  var status=gfId('gfum-status').value;
+  if(!id&&!login){ gfToast('Вкажіть логін/email','var(--red)'); return; }
+  if(!id&&!pass){ gfToast('Вкажіть пароль','var(--red)'); return; }
+  if(!name){ gfToast('Вкажіть ПІБ','var(--red)'); return; }
+  try{
+    var data={name:name,role:role,status:status,updatedAt:new Date().toISOString()};
+    if(pass) data.password=pass;
+    if(id){
+      await db.collection('users').doc(id).update(data);
+    } else {
+      data.login=login;
+      data.createdAt=new Date().toISOString();
+      await db.collection('users').add(data);
+    }
+    gfCloseUserModal();
+    gfToast('✅ Збережено','var(--green)');
+    await gfLoadUsers();
+    gfRender();
+  }catch(e){ gfToast('❌ '+e.message,'var(--red)'); }
 }
 
 /* ── Лог дій ── */
@@ -144,84 +234,21 @@ async function gfLoadLog(){
 
 /* ── Налаштування ── */
 function gfViewSetup(){
-  var kw = GF.priorityKw || '';
-  var active = (GF.data.sources||[]).filter(function(s){ return s.source_status==='active'; });
+  var kw=GF.priorityKw||'';
+  return '<div class="gf-panel" style="margin-bottom:14px"><div class="gf-panel-h"><h3>Пріоритетні слова</h3></div>'
+    +'<p class="gf-muted" style="margin-bottom:10px;font-size:12px">Записи з цими словами будуть зверху списку «Виявлено» та підсвічені. Через кому.</p>'
+    +'<div class="gf-field"><textarea id="gfSetupKw" style="min-height:70px">'+gfE(kw)+'</textarea></div>'
+    +'<button class="gf-btn" onclick="gfSavePrioKw()">Зберегти</button></div>'
 
-  // Рядки таблиці автосканування
-  var scanRows = '';
-  active.forEach(function(s) {
-    var sid = s._id || s.source_id || '';
-    var ico = /telegram/i.test(s.source_type||'') ? '📱' : /rss/i.test(s.source_type||'') ? '📡' : '🌐';
-    var stBg = s.last_error ? 'rgba(239,68,68,.12)' : '';
+    +'<div class="gf-panel" style="margin-bottom:14px"><div class="gf-panel-h"><h3>Firestore</h3></div>'
+    +'<p class="gf-muted" style="font-size:12px">Дані зберігаються у Firebase проєкті <b>kontrol-pro</b>.</p>'
+    +'<p class="gf-muted" style="font-size:12px;margin-top:6px">Колекції: '
+    +Object.values(GFC).map(function(c){return '<code style="background:rgba(255,255,255,.06);padding:1px 5px;border-radius:3px;font-size:11px">'+gfE(c)+'</code>';}).join(' ')
+    +'</p></div>'
 
-    function sel(cls, opts, cur) {
-      return '<select class="'+cls+'" data-sid="'+gfE(sid)+'" style="background:#1e293b;color:#e2e8f0;border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:3px 6px;font-size:11px">'
-        + opts.map(function(o){ return '<option value="'+o[0]+'"'+(String(cur)===String(o[0])?' selected':'')+'>'+o[1]+'</option>'; }).join('')
-        + '</select>';
-    }
-
-    scanRows += '<tr style="background:'+stBg+'">'
-      + '<td style="padding:6px 10px;font-size:12px">'+ico+' '+gfE(s.source_name||'?')
-      +   (s.last_error ? ' <span title="'+gfE(s.last_error)+'" style="color:#ef4444;cursor:help">⚠️</span>' : '')
-      + '</td>'
-      + '<td style="padding:6px;text-align:center">'+sel('gf-sc-int',[['1','1хв'],['5','5хв'],['15','15хв'],['30','30хв'],['60','1год'],['360','6год'],['1440','1день']], s.scan_interval_min||'1')+'</td>'
-      + '<td style="padding:6px;text-align:center"><input type="number" class="gf-sc-max" data-sid="'+gfE(sid)+'" value="'+gfE(s.item_limit||'3')+'" min="1" max="50" style="background:#1e293b;color:#e2e8f0;border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:3px 6px;font-size:11px;width:50px;text-align:center"></td>'
-      + '<td style="padding:6px;text-align:center">'+sel('gf-sc-win',[['3','3дн'],['7','7дн'],['14','14дн'],['30','30дн'],['60','60дн']], s.scan_window_days||'7')+'</td>'
-      + '<td style="padding:6px;text-align:center;font-size:11px;color:#64748b">'+(s.last_checked_at?(s.last_checked_at||'').slice(11,16):'—')+'</td>'
-      + '<td style="padding:6px;text-align:center">'+(s.found_count||0)+'</td>'
-      + '</tr>';
-  });
-
-  var scanPanel = '<div class="gf-panel" style="margin-bottom:14px">'
-    + '<div class="gf-panel-h"><h3>⚙️ Автосканування</h3>'
-    + '<button class="gf-btn sm" onclick="gfSaveScanSettings()">💾 Зберегти все</button></div>'
-    + '<p class="gf-muted" style="font-size:12px;margin-bottom:10px">Налаштування по всіх активних джерелах. ⚠️ — є помилка сканування.</p>'
-    + (active.length
-        ? '<div class="gf-tw"><table class="gf-t"><thead><tr>'
-          + '<th>Джерело</th><th style="text-align:center">Інтервал</th>'
-          + '<th style="text-align:center">Макс нових</th><th style="text-align:center">Вікно</th>'
-          + '<th style="text-align:center">Останнє</th><th style="text-align:center">Знайдено</th>'
-          + '</tr></thead><tbody>'+scanRows+'</tbody></table></div>'
-        : '<div class="gf-empty">Немає активних джерел.</div>')
-    + '</div>';
-
-  return scanPanel
-    + '<div class="gf-panel" style="margin-bottom:14px"><div class="gf-panel-h"><h3>🎯 Пріоритетні слова</h3></div>'
-    + '<p class="gf-muted" style="margin-bottom:10px;font-size:12px">Записи з цими словами підсвічуються та виводяться вгору у «Виявлено». Через кому.</p>'
-    + '<div class="gf-field"><textarea id="gfSetupKw" style="min-height:60px">'+gfE(kw)+'</textarea></div>'
-    + '<button class="gf-btn" onclick="gfSavePrioKw()">Зберегти</button></div>'
-
-    + '<div class="gf-panel" style="margin-bottom:14px"><div class="gf-panel-h"><h3>🗄️ Firestore</h3></div>'
-    + '<p class="gf-muted" style="font-size:12px">Проєкт: <b>kontrol-pro</b></p>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">'
-    + Object.values(GFC).map(function(c){ return '<code style="background:rgba(255,255,255,.06);padding:2px 8px;border-radius:4px;font-size:10px">'+gfE(c)+'</code>'; }).join('')
-    + '</div></div>'
-
-    + '<div class="gf-panel"><div class="gf-panel-h"><h3>⚡ Cloud Functions</h3></div>'
-    + '<p class="gf-muted" style="font-size:12px">ScanEngine активний — сканує 1 джерело на хвилину відповідно до налаштованого інтервалу.</p>'
-    + '<div class="gf-ok" style="margin-top:8px">✅ Автосканування працює.</div></div>';
-}
-
-async function gfSaveScanSettings() {
-  var rows = document.querySelectorAll('.gf-sc-int');
-  var saved = 0;
-  try {
-    for (var i = 0; i < rows.length; i++) {
-      var sid = rows[i].dataset.sid; if (!sid) continue;
-      var maxEl = document.querySelector('.gf-sc-max[data-sid="'+sid+'"]');
-      var winEl = document.querySelector('.gf-sc-win[data-sid="'+sid+'"]');
-      var upd = {
-        scan_interval_min: rows[i].value,
-        item_limit:        maxEl ? maxEl.value : '3',
-        scan_window_days:  winEl ? winEl.value : '7'
-      };
-      await gfUpd(GFC.sources, sid, upd);
-      var src = (GF.data.sources||[]).find(function(s){ return (s._id||s.source_id)===sid; });
-      if (src) Object.assign(src, upd);
-      saved++;
-    }
-    gfToast('Збережено для '+saved+' джерел', 'var(--green)');
-  } catch(e) { gfToast('Помилка: '+e.message, 'var(--red)'); }
+    +'<div class="gf-panel"><div class="gf-panel-h"><h3>Cloud Functions</h3></div>'
+    +'<p class="gf-muted" style="font-size:12px">ScanEngine буде працювати через Firebase Cloud Functions (планується).</p>'
+    +'<div class="gf-notice" style="margin-top:10px">Автосканування ще не налаштовано. Поки що додавайте записи вручну.</div></div>';
 }
 
 async function gfSavePrioKw(){

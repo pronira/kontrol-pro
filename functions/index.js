@@ -270,6 +270,40 @@ exports.scanScheduled = functions.pubsub
     }
   });
 
+// ══════ ЩОДЕННИЙ ЛІЧИЛЬНИК о 23:55 ══════
+exports.dailyFoundCounter = functions.pubsub
+  .schedule('55 23 * * *')
+  .timeZone('Europe/Kyiv')
+  .onRun(async () => {
+    try {
+      var today = new Date().toISOString().slice(0, 10);
+      // Рахуємо скільки виявлено сьогодні
+      var snap = await db.collection('gf_detected')
+        .where('found_at', '>=', today + 'T00:00:00.000Z')
+        .where('found_at', '<=', today + 'T23:59:59.999Z')
+        .get();
+      var todayCount = snap.size;
+
+      // Читаємо поточний total з лічильника
+      var statsRef = db.collection('gf_settings').doc('main_stats');
+      var statsSnap = await statsRef.get();
+      var currentTotal = statsSnap.exists ? (statsSnap.data().total || 0) : 0;
+
+      // Записуємо: total залишається як є (накопичувальний),
+      // додаємо запис у daily_history для графіку
+      var histRef = db.collection('gf_settings').doc('daily_history');
+      var histSnap = await histRef.get();
+      var history = histSnap.exists ? (histSnap.data().days || []) : [];
+      history.unshift({ date: today, count: todayCount, total: currentTotal });
+      if (history.length > 365) history = history.slice(0, 365);
+
+      await histRef.set({ days: history, updatedAt: new Date().toISOString() });
+      console.log('Daily counter: ' + today + ' found=' + todayCount + ' total=' + currentTotal);
+    } catch(e) {
+      console.error('dailyFoundCounter error:', e.message);
+    }
+  });
+
 // ══════ CORE ══════
 async function scanSingle(sourceId, src, maxNew) {
   maxNew = maxNew || 3;
@@ -467,3 +501,53 @@ async function parsePageLinks(url, limit, src) {
 function stripHtml(h) {
   return String(h||'').replace(/<[^>]*>/g,' ').replace(/&\w+;/g,' ').replace(/\s+/g,' ').trim().slice(0,3000);
 }
+
+
+/* ══════ DAILY COUNTER: кожного дня о 23:55 ══════ */
+exports.dailyDetectedCount = functions.pubsub
+  .schedule('55 23 * * *')
+  .timeZone('Europe/Kyiv')
+  .onRun(async () => {
+    var today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    var todayStart = today + 'T00:00:00.000Z';
+    var todayEnd   = today + 'T23:59:59.999Z';
+    try {
+      // Рахуємо скільки знайдено сьогодні
+      var snap = await db.collection(COL.detected)
+        .where('found_at', '>=', todayStart)
+        .where('found_at', '<=', todayEnd)
+        .get();
+      var todayCount = snap.size;
+
+      if (todayCount > 0) {
+        // Додаємо до накопиченого лічильника
+        var statsRef = db.collection('gf_settings').doc('main_stats');
+        var statsSnap = await statsRef.get();
+        if (statsSnap.exists) {
+          var cur = parseInt(statsSnap.data().total || 0);
+          // total вже містить всі записи — оновлюємо точне значення
+          // Також зберігаємо lastDailyCount для відображення
+          await statsRef.update({
+            total: cur, // залишаємо як є (rebuild дає точне значення)
+            lastDailyCount: todayCount,
+            lastDailyDate: today,
+            updatedAt: new Date().toISOString()
+          });
+        } else {
+          // Перший запуск — рахуємо все
+          var allSnap = await db.collection(COL.detected).get();
+          await statsRef.set({
+            total: allSnap.size,
+            lastDailyCount: todayCount,
+            lastDailyDate: today,
+            updatedAt: new Date().toISOString()
+          });
+        }
+        console.log('Daily count: ' + todayCount + ' new detected on ' + today);
+      } else {
+        console.log('Daily count: 0 new detected on ' + today);
+      }
+    } catch(e) {
+      console.error('Daily counter error:', e.message);
+    }
+  });

@@ -397,6 +397,36 @@
     </div>
   </div>
 
+  <!-- ══════ USER MODAL ══════ -->
+  <div id="gfUserModal" class="gf-modal hidden">
+    <div class="gf-modal-box" style="max-width:480px">
+      <button class="gf-modal-close" onclick="gfCloseUserModal()">✕</button>
+      <h3 id="gfUserModalTitle" style="margin:0 0 14px">Користувач</h3>
+      <input type="hidden" id="gfum-id">
+      <div class="gf-field"><label>Логін / Email</label><input type="text" id="gfum-login" placeholder="login або email"></div>
+      <div class="gf-field"><label>Пароль</label><input type="password" id="gfum-pass" placeholder="Пароль"></div>
+      <div class="gf-field"><label>ПІБ</label><input type="text" id="gfum-name" placeholder="Прізвище Ім'я"></div>
+      <div class="gf-field"><label>Роль</label>
+        <select id="gfum-role">
+          <option value="admin">Адміністратор</option>
+          <option value="grantflow">GrantFlow (тільки)</option>
+          <option value="user">Користувач</option>
+          <option value="viewer">Переглядач</option>
+        </select>
+      </div>
+      <div class="gf-field"><label>Статус</label>
+        <select id="gfum-status">
+          <option value="active">Активний</option>
+          <option value="blocked">Заблокований</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:12px">
+        <button class="gf-btn" onclick="gfSaveUserModal()">💾 Зберегти</button>
+        <button class="gf-btn o" onclick="gfCloseUserModal()">Скасувати</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ══════ PICKER MODAL ══════ -->
   <div id="gfPickerModal" class="gf-modal hidden">
     <div class="gf-modal-box" style="max-width:500px">
