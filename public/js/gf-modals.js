@@ -332,21 +332,53 @@ function gfUpdateBulkBar(){
 
 async function gfBulkAction(status){
   var ids=Object.keys(GF_BULK);if(!ids.length)return;
-  var reason=status==='Не підходить'?prompt('Причина (для всіх '+ids.length+'):','Не відповідає'):status;
-  if(reason===null)return;
+  if(status==='Не підходить'||status==='Видалено первинно'){
+    // Відкриваємо ту саму форму що і для одиночного — зберігаємо ids для після підтвердження
+    GF._bulkIds=ids;
+    GF._bulkStatus=status;
+    GF._isBulk=true;
+    // Показуємо кількість у заголовку
+    var m=gfId('gfStatusModal');if(!m)return;
+    gfId('gfs-id').value='__bulk__';
+    gfId('gfs-status').value=status;
+    gfId('gfs-comment').value='';
+    var reasons=GF_REJECT_REASONS;
+    var sel=gfId('gfs-reason');
+    sel.innerHTML=reasons.map(function(r){return'<option value="'+gfE(r)+'">'+gfE(r)+'</option>';}).join('');
+    var quickReasons=GF_REJECT_QUICK;
+    var pillsCont=gfId('gfs-pills');
+    if(pillsCont){
+      pillsCont.innerHTML=quickReasons.map(function(r){
+        return '<button type="button" onclick="gfPickReason(this,\x27'+gfE(r)+'\x27)" style="'
+          +'padding:4px 10px;border-radius:99px;border:1px solid rgba(255,255,255,.18);'
+          +'background:rgba(79,110,247,.12);color:#94a3b8;font-size:11px;cursor:pointer;'
+          +'font-family:inherit;transition:all .15s;white-space:nowrap">'
+          +gfE(r)+'</button>';
+      }).join('');
+    }
+    gfId('gfStatusTitle').textContent='🚫 Не підходить — '+ids.length+' записів';
+    var bd=gfId('gfStatusBackdrop');if(bd)bd.style.display='none';
+    m.classList.remove('hidden');m.style.display='block';
+    var handle=gfId('gfStatusDragHandle'),box=gfId('gfStatusBox');
+    if(handle&&box)handle.onmousedown=function(e){gfDragEl(m,e);};
+    var cmtEl=gfId('gfs-comment');
+    if(cmtEl){cmtEl.onkeydown=function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();gfSubmitStatus();}};}
+    m._escHandler=function(e){if(e.key==='Escape')gfCloseStatusModal();};
+    document.addEventListener('keydown',m._escHandler);
+    setTimeout(function(){sel.focus();},50);
+    return;
+  }
+  // Для "Корисне" — без форми, одразу застосовуємо
   try{
     for(var i=0;i<ids.length;i++){
-      await gfSetDetectedStatus(ids[i],status,reason,'');
-      /* Update local */
+      await gfSetDetectedStatus(ids[i],status,status,'');
       var det=GF.data.detected||[];
       for(var j=0;j<det.length;j++){
-        if((det[j]._id||det[j].detected_id)===ids[i]){
-          det[j].status=status;det[j].status_reason=reason;break;
-        }
+        if((det[j]._id||det[j].detected_id)===ids[i]){det[j].status=status;break;}
       }
     }
     GF_BULK={};gfUpdateBulkBar();
-    gfToast(status+': '+ids.length+' записів',status==='Корисне'?'var(--green)':'var(--red)');
+    gfToast(status+': '+ids.length+' записів','var(--green)');
     gfRender();
   }catch(e){alert('Помилка: '+e.message);await gfRefresh();}
 }
