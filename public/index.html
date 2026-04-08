@@ -327,6 +327,11 @@
             <button class="gf-btn o" onclick="gfEditorOpenUrl()">↗ Відкрити сайт</button>
             <button class="gf-btn o" onclick="gfCloseEditor()">Скасувати</button>
           </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)">
+            <span style="font-size:11px;color:var(--tx3);align-self:center">Статус:</span>
+            <button class="gf-btn sm g" onclick="gfEditorSetStatus('Корисне')">✓ Корисне</button>
+            <button class="gf-btn sm r" onclick="gfEditorSetStatus('Не підходить')">✕ Не підходить</button>
+          </div>
         </div>
         <div>
           <div style="font-size:13px;font-weight:600;margin-bottom:8px">Попередній перегляд</div>
@@ -338,16 +343,41 @@
   </div>
 
   <!-- ══════ STATUS MODAL ══════ -->
-  <div id="gfStatusModal" class="gf-modal hidden">
-    <div class="gf-modal-box" style="max-width:500px">
-      <button class="gf-modal-close" onclick="gfCloseStatusModal()">✕</button>
-      <h3 id="gfStatusTitle" style="margin:0 0 14px">Зміна статусу</h3>
+  <!-- ══════ STATUS MODAL (перетягуване, Enter=підтвердити) ══════ -->
+  <!-- Backdrop для status modal (не активний — вікно floating без туману) -->
+  <div id="gfStatusBackdrop" style="display:none;position:fixed;inset:0;z-index:19999"></div>
+
+  <div id="gfStatusModal" class="hidden" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:20000;display:none;pointer-events:auto">
+    <div id="gfStatusBox" style="width:480px;max-width:96vw;background:#0f172a;border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:22px 24px;box-shadow:0 24px 64px rgba(0,0,0,.8);color:#e2e8f0;font-family:Geologica,system-ui,sans-serif">
+      <!-- Заголовок — drag handle -->
+      <div id="gfStatusDragHandle" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;cursor:move;user-select:none">
+        <h3 id="gfStatusTitle" style="margin:0;font-size:15px;font-weight:700;color:#e2e8f0">Зміна статусу</h3>
+        <button onclick="gfCloseStatusModal()" style="background:#ef4444;border:none;color:#fff;border-radius:8px;padding:5px 12px;cursor:pointer;font-weight:700;font-size:14px">✕</button>
+      </div>
       <input type="hidden" id="gfs-id"><input type="hidden" id="gfs-status">
-      <div class="gf-field"><label>Причина</label><select id="gfs-reason"></select></div>
-      <div class="gf-field"><label>Коментар</label><textarea id="gfs-comment" style="min-height:100px"></textarea></div>
-      <div style="display:flex;gap:6px;margin-top:10px">
-        <button class="gf-btn" onclick="gfSubmitStatus()">Підтвердити</button>
-        <button class="gf-btn o" onclick="gfCloseStatusModal()">Скасувати</button>
+
+      <!-- Кнопки-пілюлі швидкого вибору -->
+      <div style="margin-bottom:10px">
+        <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px">Швидкий вибір</div>
+        <div id="gfs-pills" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+      </div>
+
+      <!-- Повний список -->
+      <div style="margin-bottom:12px">
+        <label style="display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Причина (повний список)</label>
+        <select id="gfs-reason" style="width:100%;padding:9px 12px;background:#1e293b;color:#e2e8f0;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:13px;cursor:pointer;outline:none"></select>
+      </div>
+
+      <!-- Коментар -->
+      <div style="margin-bottom:4px">
+        <label style="display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">
+          Коментар <span style="color:#475569;font-weight:400;text-transform:none">(Enter = підтвердити)</span>
+        </label>
+        <textarea id="gfs-comment" rows="3" placeholder="Додатковий коментар..." style="width:100%;padding:10px 12px;background:#1e293b;color:#e2e8f0;border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:13px;resize:vertical;outline:none;font-family:inherit;line-height:1.5;box-sizing:border-box"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="gf-btn" onclick="gfSubmitStatus()" style="flex:1;background:#4f6ef7;padding:10px 20px;font-size:14px">✓ Підтвердити</button>
+        <button class="gf-btn o" onclick="gfCloseStatusModal()" style="padding:10px 20px">Скасувати</button>
       </div>
     </div>
   </div>

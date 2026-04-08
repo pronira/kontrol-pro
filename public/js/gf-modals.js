@@ -68,34 +68,165 @@ function gfEditorOpenUrl(){
   if(url)window.open(url,'_blank');
 }
 
+/* Зміна статусу прямо з редактора */
+function gfEditorSetStatus(status){
+  var id=(gfId('gfe-id')||{}).value;
+  if(!id){ gfToast('ID не знайдено','var(--red)'); return; }
+  gfOpenStatusModal(id, status);
+}
+
 /* ══════════ 2. ЗМІНА СТАТУСУ (з причиною) ══════════ */
 
-var GF_REJECT_REASONS=['Не наша географія','Не наш тип заявника','Не наша тематика',
-  'Не підходимо за кількістю населення','Потрібен партнер','Складні вимоги',
-  'Дедлайн минув','Недостатня сума','Дублікат','Інше'];
+var GF_REJECT_REASONS=[
+  'Не наша тематика','Не наша географія','Не наш тип заявника',
+  'Не підходимо за кількістю населення','Дедлайн минув',
+  'Недостатня сума','Потрібен партнер','Складні вимоги','Дублікат','Інше'
+];
+// Кнопки швидкого вибору (найчастіші)
+var GF_REJECT_QUICK=['Не наша тематика','Не наша географія','Не наш тип заявника','Дедлайн минув','Дублікат'];
 var GF_APPROVE_REASONS=['Підходить за темою','Підходить за заявниками','Підходить за дедлайном',
   'Корисний запис','Інше'];
+var GF_APPROVE_QUICK=['Підходить за темою','Підходить за заявниками','Корисний запис'];
 
 function gfOpenStatusModal(id,status){
   var m=gfId('gfStatusModal');if(!m)return;
   gfId('gfs-id').value=id;
   gfId('gfs-status').value=status;
-  // Авто-вставка виділеного тексту в коментар
+
+  // Авто-вставка виділеного тексту
   var selected=window.getSelection?window.getSelection().toString().trim():'';
   gfId('gfs-comment').value=selected||'';
+
   var isReject=status==='Не підходить'||status==='Видалено первинно';
   var reasons=isReject?GF_REJECT_REASONS:GF_APPROVE_REASONS;
-  // Сортуємо причини за алфавітом
-  var sorted=reasons.slice().sort(function(a,b){return a.localeCompare(b,'uk');});
+  var quickReasons=isReject?GF_REJECT_QUICK:GF_APPROVE_QUICK;
+
+  // Повний список
   var sel=gfId('gfs-reason');
-  sel.innerHTML=sorted.map(function(r){return'<option value="'+gfE(r)+'">'+gfE(r)+'</option>';}).join('');
+  sel.innerHTML=reasons.map(function(r){return'<option value="'+gfE(r)+'">'+gfE(r)+'</option>';}).join('');
+
+  // Кнопки-пілюлі швидкого вибору
+  var pillsCont=gfId('gfs-pills');
+  if(pillsCont){
+    pillsCont.innerHTML=quickReasons.map(function(r){
+      return '<button type="button" onclick="gfPickReason(this,\x27'+gfE(r)+'\x27)" style="'
+        +'padding:4px 10px;border-radius:99px;border:1px solid rgba(255,255,255,.18);'
+        +'background:rgba(79,110,247,.12);color:#94a3b8;font-size:11px;cursor:pointer;'
+        +'font-family:inherit;transition:all .15s;white-space:nowrap">'
+        +gfE(r)+'</button>';
+    }).join('');
+  }
+
   gfId('gfStatusTitle').textContent=isReject?'🚫 Чому не підходить?':'✅ Позначити корисним';
+
+  // Без туману — вікно floating поверх контенту, backdrop не показуємо
+  var bd=gfId('gfStatusBackdrop');
+  if(bd) bd.style.display='none';
+
+  // Показуємо вікно
   m.classList.remove('hidden');
-  // Фокус на коментар якщо є виділений текст, інакше на список причин
-  setTimeout(function(){ (selected?gfId('gfs-comment'):sel).focus(); }, 50);
+  m.style.display='block';
+
+  // Drag по заголовку
+  var handle=gfId('gfStatusDragHandle');
+  var box=gfId('gfStatusBox');
+  if(handle&&box) handle.onmousedown=function(e){ gfDragEl(m,e); };
+
+  // Enter = підтвердити
+  var cmtEl=gfId('gfs-comment');
+  if(cmtEl){
+    cmtEl.onkeydown=function(e){
+      if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();gfSubmitStatus();}
+    };
+  }
+
+  // Escape = закрити
+  m._escHandler=function(e){ if(e.key==='Escape') gfCloseStatusModal(); };
+  document.addEventListener('keydown',m._escHandler);
+
+  setTimeout(function(){ (selected?gfId('gfs-comment'):sel).focus(); },50);
 }
 
-function gfCloseStatusModal(){var m=gfId('gfStatusModal');if(m)m.classList.add('hidden');}
+/* Вибір пілюлі — підсвічує і встановлює значення в select */
+function gfPickReason(btn, reason){
+  var pillsCont=gfId('gfs-pills');
+  if(pillsCont) pillsCont.querySelectorAll('button').forEach(function(b){
+    b.style.background='rgba(79,110,247,.12)';
+    b.style.color='#94a3b8';
+    b.style.borderColor='rgba(255,255,255,.18)';
+  });
+  btn.style.background='#4f6ef7';
+  btn.style.color='#fff';
+  btn.style.borderColor='#4f6ef7';
+  var sel=gfId('gfs-reason');
+  if(sel){
+    // Якщо є така опція — вибираємо
+    var found=false;
+    for(var i=0;i<sel.options.length;i++){
+      if(sel.options[i].value===reason){ sel.selectedIndex=i; found=true; break; }
+    }
+    // Якщо немає — додаємо тимчасово
+    if(!found){ sel.insertAdjacentHTML('afterbegin','<option value="'+gfE(reason)+'" selected>'+gfE(reason)+'</option>'); }
+  }
+  // Фокус на коментар
+  var cmt=gfId('gfs-comment');
+  if(cmt) cmt.focus();
+}
+
+/* Drag вікна */
+function gfDragEl(el,e){
+  e.preventDefault();
+  var rect=el.getBoundingClientRect();
+  // Переходимо з transform:translate до абсолютних координат
+  el.style.transform='none';
+  el.style.top=rect.top+'px';
+  el.style.left=rect.left+'px';
+  var startX=e.clientX-rect.left, startY=e.clientY-rect.top;
+  function onMove(ev){
+    el.style.top=(ev.clientY-startY)+'px';
+    el.style.left=(ev.clientX-startX)+'px';
+  }
+  function onUp(){ document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); }
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('mouseup',onUp);
+}
+
+// Drag функція для перетягування
+function gfDragModal(box,e){
+  var startX=e.clientX,startY=e.clientY;
+  var rect=box.getBoundingClientRect();
+  // Переключаємо з transform на top/left
+  box.style.transform='';
+  box.style.top=rect.top+'px';
+  box.style.left=rect.left+'px';
+  function onMove(ev){
+    box.style.top=(rect.top+ev.clientY-startY)+'px';
+    box.style.left=(rect.left+ev.clientX-startX)+'px';
+  }
+  function onUp(){
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+  }
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('mouseup',onUp);
+  e.preventDefault();
+}
+
+function gfCloseStatusModal(){
+  var m=gfId('gfStatusModal');
+  if(!m) return;
+  m.classList.add('hidden');
+  m.style.display='none';
+  // Скидаємо позицію для наступного відкриття по центру
+  m.style.top='50%'; m.style.left='50%'; m.style.transform='translate(-50%,-50%)';
+  // Ховаємо backdrop
+  var bd=gfId('gfStatusBackdrop');
+  if(bd) bd.style.display='none';
+  // Знімаємо Escape handler
+  if(m._escHandler){ document.removeEventListener('keydown',m._escHandler); m._escHandler=null; }
+  var cmtEl=gfId('gfs-comment');
+  if(cmtEl) cmtEl.onkeydown=null;
+}
 
 async function gfSubmitStatus(){
   var id=(gfId('gfs-id')||{}).value;
@@ -256,4 +387,48 @@ function gfApplyPicker(){
   var input=gfId('gfsf-'+GF_PICKER_FIELD);
   if(input)input.value=vals.join(', ');
   gfClosePicker();
+}
+
+
+/* ── Draggable modal helper ── */
+function gfMakeDraggable(modal, handle) {
+  if(!handle) return;
+  var box = modal.querySelector('.gf-modal-box');
+  if(!box) return;
+  // Позиціонуємо box абсолютно всередині modal
+  box.style.position = 'absolute';
+  box.style.cursor = 'default';
+  handle.style.cursor = 'move';
+  handle.style.userSelect = 'none';
+  // Скидаємо попередній drag handler
+  if(handle._dragClean) handle._dragClean();
+  var isDragging = false, startX, startY, origLeft, origTop;
+  function onMouseDown(e) {
+    if(e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT') return;
+    isDragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    var rect = box.getBoundingClientRect();
+    origLeft = rect.left;
+    origTop = rect.top;
+    box.style.left = origLeft + 'px';
+    box.style.top = origTop + 'px';
+    box.style.margin = '0';
+    e.preventDefault();
+  }
+  function onMouseMove(e) {
+    if(!isDragging) return;
+    var dx = e.clientX - startX, dy = e.clientY - startY;
+    box.style.left = Math.max(0, origLeft + dx) + 'px';
+    box.style.top = Math.max(0, origTop + dy) + 'px';
+  }
+  function onMouseUp() { isDragging = false; }
+  handle.addEventListener('mousedown', onMouseDown);
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+  handle._dragClean = function() {
+    handle.removeEventListener('mousedown', onMouseDown);
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
 }
