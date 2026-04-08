@@ -6,7 +6,8 @@ var GF = {
   tab:'overview', data:null, loading:false,
   detectedView:'new', detectedSearch:'', viewMode:'list',
   sourceView:'active', sourceSearch:'',
-  priorityKw:'', autoTimer:null, lastCount:0
+  priorityKw:'', autoTimer:null, lastCount:0,
+  _users:null, _dailyHistory:[]
 };
 
 var GF_MENU = [

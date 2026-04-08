@@ -115,16 +115,21 @@ function gfViewContacts(){
 
 /* ── Користувачі ── */
 function gfViewUsers(){
-  var isAdmin=typeof CUR_USER!=='undefined'&&CUR_USER&&CUR_USER.role==='admin';
+  var isAdmin=typeof CUR_USER!=='undefined'&&CUR_USER
+    &&(CUR_USER.role==='admin'||(typeof hasPerm==='function'&&hasPerm('users','full')));
   var h='<div class="gf-panel"><div class="gf-panel-h"><h3>Користувачі</h3>'
     +(isAdmin?'<button class="gf-btn sm" onclick="gfOpenAddUser()">+ Додати</button>':'')
     +'</div>';
-  if(!GF._users||!GF._users.length){
+  if(GF._users===null){
     h+='<div class="gf-empty">Завантаження...</div></div>';
     gfLoadUsers();
     return h;
   }
-  var ROLE_LABELS={admin:'Адміністратор',grantflow:'GrantFlow (тільки)',user:'Користувач',viewer:'Переглядач'};
+  if(!GF._users.length){
+    h+='<div class="gf-empty">Немає користувачів.</div></div>';
+    return h;
+  }
+  var ROLE_LABELS={admin:'Адміністратор',grantflow:'GrantFlow (тільки)',editor:'Редактор',user:'Користувач',viewer:'Переглядач'};
   h+='<div class="gf-tw"><table class="gf-t"><thead><tr><th>ПІБ</th><th>Логін/Email</th><th>Роль</th><th>Статус</th>'+(isAdmin?'<th></th>':'')+'</tr></thead><tbody>';
   (GF._users||[]).forEach(function(u){
     var roleLabel=ROLE_LABELS[u.role]||u.role||'—';
@@ -150,9 +155,12 @@ async function gfLoadUsers(){
     GF._users=[];
     snap.forEach(function(d){GF._users.push(Object.assign({_id:d.id},d.data()));});
     if(GF.tab==='users') gfRender();
-  }catch(e){console.warn('gfLoadUsers',e);}
+  }catch(e){
+    console.warn('gfLoadUsers:',e);
+    GF._users=[];
+    if(GF.tab==='users') gfRender();
+  }
 }
-
 function gfOpenAddUser(){
   var m=gfId('gfUserModal'); if(!m) return;
   gfId('gfum-id').value='';
