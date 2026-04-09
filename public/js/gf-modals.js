@@ -233,8 +233,35 @@ async function gfSubmitStatus(){
   var status=(gfId('gfs-status')||{}).value;
   var reason=(gfId('gfs-reason')||{}).value;
   var comment=(gfId('gfs-comment')||{}).value.trim();
+
+  // ── BULK режим ──
+  if(id==='__bulk__'){
+    var ids=GF._bulkIds||[];
+    if(!ids.length){gfCloseStatusModal();return;}
+    gfCloseStatusModal();
+    try{
+      for(var b=0;b<ids.length;b++){
+        await gfSetDetectedStatus(ids[b],status,reason,comment);
+        var det2=GF.data.detected||[];
+        for(var k=0;k<det2.length;k++){
+          if((det2[k]._id||det2[k].detected_id)===ids[b]){
+            det2[k].status=status;det2[k].status_reason=reason;
+            det2[k].status_comment=comment;
+            det2[k].status_changed_at=new Date().toISOString();
+            break;
+          }
+        }
+      }
+      GF._isBulk=false;GF._bulkIds=[];
+      GF_BULK={};gfUpdateBulkBar();
+      gfToast('✕ Відхилено: '+ids.length+' записів','var(--red)');
+      gfRender();
+    }catch(e){gfToast('❌ '+e.message,'var(--red)');await gfRefresh();}
+    return;
+  }
+
+  // ── Одиночний режим ──
   try{
-    /* Optimistic update */
     var det=GF.data.detected||[];
     for(var i=0;i<det.length;i++){
       if((det[i]._id||det[i].detected_id)===id){
@@ -247,7 +274,7 @@ async function gfSubmitStatus(){
     gfCloseStatusModal(); gfCloseEditor(); gfRender();
     await gfSetDetectedStatus(id,status,reason,comment);
     try { await gfLog('detected',id,'status_change','',status,reason+' '+comment); } catch(le){ console.warn('log error:',le); }
-    gfToast(status==='Корисне'?'✓ Корисне':'✕ Відхилено', status==='Корисне'?'var(--green)':'var(--red)');
+    gfToast(status==='Корисне'?'✓ Корисне':'✕ Відхилено',status==='Корисне'?'var(--green)':'var(--red)');
   }catch(e){gfToast('❌ '+e.message,'var(--red)');console.error('status error:',e);await gfRefresh();}
 }
 
