@@ -1,6 +1,14 @@
 /**
- * GrantFlow ScanEngine v5
- * Виправлено: HTTP status checks, scan history, auto-pause, мертві URL
+ * GrantFlow ScanEngine v6 — об'єднана версія
+ * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
+ * Виправлення зі звіту 08.06:
+ *  - Google News 503: ротація User-Agent + retry з паузою
+ *  - Мертві домени: автопауза швидша (5 fails), кращі повідомлення
+ *  - non_ua фільтр: пом'якшено (тільки явні службові слова)
+ *  - Telegram 0: кращий парсинг, fallback на t.me/s/
+ *  - HTTP 403 (devex/undp/mindev): кілька UA, не валиться весь скан
+ *  - ВСІ 8 функцій: scanScheduled, scanSource, scanAll, rejectDetected,
+ *    clearScanLogs, healthCheck, dailyFoundCounter, dailyDetectedCount
  */
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
@@ -11,9 +19,17 @@ const cheerio = require('cheerio');
 const { XMLParser } = require('fast-xml-parser');
 
 const COL = { sources:'gf_sources', detected:'gf_detected', scanIdx:'gf_scan_index' };
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36';
-const FETCH_TIMEOUT = 12000; // 12с замість 15с
-const MAX_FAILS_BEFORE_PAUSE = 7; // авто-пауза після 7 помилок поспіль
+
+// Ротація User-Agent — для обходу 403/503 (Google News, devex, undp)
+const UA_LIST = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+  'Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0',
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1'
+];
+const UA = UA_LIST[0];
+const FETCH_TIMEOUT = 12000;
+const MAX_FAILS_BEFORE_PAUSE = 7;
 
 // ══════ ФІЛЬТРИ ══════
 const GRANT_WORDS = [
@@ -25,13 +41,24 @@ const GRANT_WORDS = [
 ];
 const SPAM = [
   'вакансія','вакансії','job','jobs','career','hiring','vacancy',
-  'купити','продаж','казино','ставки','кредит','порно',
-  'login','logout','register','signup','cookie','privacy policy'
+  'купити','продаж','казино','ставки','порно',
+  'login','logout','register','signup','privacy policy',
+  'результати розіграш','переможець розіграш'
 ];
 const BAD_TITLE = [
   /^\[?email\s*protected\]?/i, /^mailto:/i, /^https?:\/\//i,
-  /^@/, /^\d+$/, /^[\s\W]+$/, /^(головна|контакти|про нас|about|home|menu|#|javascript|undefined|null)/i,
-  /cloudflare/i, /captcha/i, /404|not found/i, /access denied/i
+  /^@/, /^\d+$/, /^[\s\W]+$/,
+  /^(головна|контакти|про нас|about|home|menu|#|javascript|undefined|null)$/i,
+  /cloudflare/i, /captcha/i, /^404|^not found/i, /access denied/i
+];
+// Службові слова навігації — пом'якшений non-UA фільтр.
+// Відсіюємо ТІЛЬКИ якщо весь заголовок = службове слово (не якщо містить).
+const NAV_WORDS = [
+  'новини','про міністерство','команда','структура','контакти','напрями',
+  'про нас','послуги','ціни','блог','вакансії','умови використання',
+  'угода користувача','реєстрація','логін','довідка','конфіденційність',
+  'partner with us','receive funding','about','home','menu','login','sign up',
+  'privacy','terms','contact','news','careers'
 ];
 
 function passesFilter(title, desc) {
@@ -40,8 +67,14 @@ function passesFilter(title, desc) {
   if (title.trim().split(' ').length < 2) return false;
   var hay = (title + ' ' + desc).toLowerCase();
   if (SPAM.some(function(w) { return hay.indexOf(w) >= 0; })) return false;
-  if (GRANT_WORDS.some(function(w) { return hay.indexOf(w) >= 0; })) return true;
-  return true;
+  return GRANT_WORDS.some(function(w) { return hay.indexOf(w) >= 0; });
+}
+
+// Пом'якшена перевірка "не наша географія/навігація":
+// блокуємо лише якщо заголовок ТОЧНО дорівнює службовому слову
+function isNavWord(title) {
+  var t = (title||'').trim().toLowerCase();
+  return NAV_WORDS.indexOf(t) >= 0;
 }
 
 // ══════ ДЕДЛАЙН ══════
@@ -187,152 +220,311 @@ function classify(title, desc) {
   return r;
 }
 
-// ══════ FETCH З ПЕРЕВІРКОЮ СТАТУСУ ══════
-async function safeFetch(url, options) {
-  const resp = await fetch(url, Object.assign({ headers:{'User-Agent':UA}, timeout:FETCH_TIMEOUT, redirect:'follow' }, options));
-  if (!resp.ok) throw new Error(`HTTP ${resp.status} from ${url.slice(0,80)}`);
-  return resp;
+// ══════ FETCH з ротацією UA і retry ══════
+async function safeFetch(url, opts) {
+  opts = opts || {};
+  var lastErr = null;
+  // Пробуємо різні User-Agent при 403/503/429
+  for (var attempt = 0; attempt < UA_LIST.length; attempt++) {
+    try {
+      var resp = await fetch(url, Object.assign({
+        headers: { 'User-Agent': UA_LIST[attempt], 'Accept': 'text/html,application/xhtml+xml,application/xml,*/*' },
+        timeout: FETCH_TIMEOUT, redirect: 'follow'
+      }, opts));
+      // 403/503/429 — пробуємо інший UA
+      if ((resp.status === 403 || resp.status === 503 || resp.status === 429) && attempt < UA_LIST.length - 1) {
+        await new Promise(function(r){ setTimeout(r, 1500 * (attempt + 1)); }); // пауза перед retry
+        continue;
+      }
+      if (!resp.ok) throw new Error('HTTP ' + resp.status + ' from ' + url.slice(0, 80));
+      return resp;
+    } catch (e) {
+      lastErr = e;
+      // DNS / connection — немає сенсу пробувати інший UA
+      if (e.code === 'ENOTFOUND' || e.code === 'EAI_AGAIN' || e.code === 'ECONNREFUSED' || e.code === 'EHOSTUNREACH') throw e;
+      if (attempt < UA_LIST.length - 1) { await new Promise(function(r){ setTimeout(r, 1000); }); continue; }
+    }
+  }
+  throw lastErr || new Error('Fetch failed: ' + url.slice(0, 80));
 }
 
-// ══════ ДЕТАЛЬНИЙ ПАРСИНГ ══════
+// ══════ ДАТА в межах вікна ══════
+function isWithinWindow(dateStr, windowDays) {
+  if (!dateStr) return true;
+  try {
+    var d = new Date(dateStr);
+    if (isNaN(d.getTime())) return true;
+    var cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - windowDays);
+    return d >= cutoff;
+  } catch(e) { return true; }
+}
+
+// ══════ ДЕТАЛЬНА СТОРІНКА ══════
 async function fetchDetailPage(url) {
   if (!url || url.length < 10) return null;
   try {
-    const resp = await safeFetch(url);
-    const html = await resp.text();
-    const $ = cheerio.load(html);
+    var resp = await safeFetch(url);
+    var html = await resp.text();
+    var $ = cheerio.load(html);
     $('script,style,nav,header,footer,aside,.menu,.sidebar,.nav,.cookie,.popup').remove();
-    var text = $('article, .content, .post, .entry, main, .page-content, .grant-detail, .single-post').text().trim();
+    var text = $('article,.content,.post,.entry,main,.page-content,.grant-detail,.single-post').text().trim();
     if (!text || text.length < 50) text = $('body').text().trim();
-    return text.replace(/\s+/g, ' ').slice(0, 5000);
+    return text.replace(/\s+/g,' ').slice(0,8000);
   } catch(e) { return null; }
 }
 
-// ══════ ЗАПИС HISTORY в документ джерела ══════
-async function writeSourceHistory(sourceId, histEntry) {
-  // Зберігаємо останні 30 записів в масиві scan_history документа
-  const ref = db.collection(COL.sources).doc(sourceId);
-  const snap = await ref.get();
-  if (!snap.exists) return;
-  const data = snap.data();
-  let history = Array.isArray(data.scan_history) ? data.scan_history : [];
-  history.unshift(histEntry); // новий на початок
-  if (history.length > 30) history = history.slice(0, 30);
-  await ref.update({ scan_history: history });
+// ══════ МУЛЬТИ-ГРАНТ: кілька грантів на одній сторінці ══════
+const MULTI_SELECTORS = [
+  '.grant-item','.grant-card','.grant-block','.call-item','.opportunity',
+  '[class*="grant"]','[class*="call"]','[class*="opportunity"]',
+  'article','.item','.post','.card','.entry','.news-item','.program-item'
+];
+
+async function extractMultipleGrants(url) {
+  if (!url) return null;
+  try {
+    var resp = await safeFetch(url);
+    var html = await resp.text();
+    var $ = cheerio.load(html);
+    $('script,style,nav,header,footer,aside,.menu,.sidebar,.nav,.cookie').remove();
+
+    // Спосіб 1: CSS-селектори блоків
+    for (var si = 0; si < MULTI_SELECTORS.length; si++) {
+      var blocks = $(MULTI_SELECTORS[si]);
+      if (blocks.length < 3) continue;
+      var items = [];
+      blocks.each(function() {
+        var el = $(this);
+        var text = el.text().replace(/\s+/g,' ').trim();
+        if (text.length < 40) return;
+        if (!GRANT_WORDS.some(function(w){ return text.toLowerCase().indexOf(w)>=0; })) return;
+        var hdr = el.find('h1,h2,h3,h4').first().text().trim() || el.find('a').first().text().trim();
+        var blockUrl = el.find('a[href]').first().attr('href') || '';
+        try { if (blockUrl && !blockUrl.startsWith('http')) blockUrl = new URL(blockUrl, url).toString(); } catch(e) {}
+        items.push({ title:(hdr||text).slice(0,200), description:text.slice(0,1000), url:blockUrl||url, date:'' });
+      });
+      if (items.length >= 3) return items;
+    }
+
+    // Спосіб 2: посилання в контентній зоні
+    var contentArea = $('main, .content, .entry-content, article, .post-content, #content, .page-content').first();
+    var ctx = contentArea.length ? contentArea : $('body');
+    var linkItems = [];
+    var seenUrls = {};
+    ctx.find('a[href]').each(function() {
+      var el = $(this);
+      var href = el.attr('href') || '';
+      var text = el.text().trim().replace(/\s+/g,' ');
+      if (!text || text.length < 15) return;
+      if (BAD_TITLE.some(function(re){ return re.test(text); })) return;
+      var fullUrl;
+      try { fullUrl = href.startsWith('http') ? href : new URL(href, url).toString(); } catch(e) { return; }
+      if (fullUrl === url) return;
+      if (href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+      if (seenUrls[fullUrl]) return;
+      seenUrls[fullUrl] = true;
+      var parentText = el.parent().text().replace(/\s+/g,' ').trim();
+      var desc = parentText.length > text.length ? parentText.slice(0,500) : text;
+      var hay = (text + ' ' + desc).toLowerCase();
+      if (!GRANT_WORDS.some(function(w){ return hay.indexOf(w)>=0; })) return;
+      if (SPAM.some(function(w){ return hay.indexOf(w)>=0; })) return;
+      linkItems.push({ title:text.slice(0,200), description:desc, url:fullUrl, date:'' });
+    });
+    if (linkItems.length >= 3) return linkItems;
+
+    // Спосіб 3: заголовки H2/H3
+    var headerItems = [];
+    ctx.find('h2,h3').each(function() {
+      var hdr = $(this);
+      var title = hdr.text().trim();
+      if (!title || title.length < 15) return;
+      if (BAD_TITLE.some(function(re){ return re.test(title); })) return;
+      var desc = '';
+      var next = hdr.next(); var safety = 0;
+      while (next.length && !next.is('h2,h3') && safety < 10) {
+        desc += ' ' + next.text(); next = next.next(); safety++;
+      }
+      desc = desc.replace(/\s+/g,' ').trim().slice(0,500);
+      var hay = (title + ' ' + desc).toLowerCase();
+      if (!GRANT_WORDS.some(function(w){ return hay.indexOf(w)>=0; })) return;
+      var blockUrl = hdr.next('a').attr('href') || hdr.find('a').attr('href') || '';
+      try { if (blockUrl && !blockUrl.startsWith('http')) blockUrl = new URL(blockUrl, url).toString(); } catch(e) {}
+      headerItems.push({ title:title.slice(0,200), description:desc, url:blockUrl||url, date:'' });
+    });
+    if (headerItems.length >= 3) return headerItems;
+
+    return null;
+  } catch(e) { return null; }
 }
 
-// ══════ SCHEDULED ══════
-exports.scanScheduled = functions.pubsub
-  .schedule('every 1 minutes')
-  .timeZone('Europe/Kyiv')
-  .onRun(async () => {
-    const snap = await db.collection(COL.sources)
-      .where('source_status','==','active')
-      .orderBy('last_checked_at','asc')
-      .limit(1).get();
-    if (snap.empty) { console.log('No active sources'); return; }
-    const doc = snap.docs[0];
-    const src = doc.data();
-    const now = new Date().toISOString();
-    console.log(`Scan: ${src.source_name || doc.id}`);
-    try {
-      const r = await scanSingle(doc.id, src, 3);
-      console.log(`Done: raw=${r.checked} pass=${r.passed} new=${r.created} dup=${r.dupes}`);
-    } catch (e) {
-      console.error(`Error scanning ${src.source_name}: ${e.message}`);
-      // Записуємо помилку
-      const failCount = (parseInt(src.consecutive_fails) || 0) + 1;
-      const histEntry = {
-        at: now, status: 'error', raw: 0, passed: 0, new: 0, dupes: 0,
-        error: e.message.slice(0, 200)
-      };
-      const upd = {
-        last_checked_at: now,
-        last_error: e.message.slice(0, 500),
-        last_scan_status: 'error',
-        last_scan_raw: 0, last_scan_new: 0, last_scan_dupes: 0,
-        consecutive_fails: failCount
-      };
-      // Авто-пауза після MAX_FAILS_BEFORE_PAUSE помилок поспіль
-      if (failCount >= MAX_FAILS_BEFORE_PAUSE) {
-        upd.source_status = 'paused';
-        upd.pause_reason = `Авто-пауза: ${failCount} помилок поспіль. Остання: ${e.message.slice(0,100)}`;
-        console.warn(`AUTO-PAUSED: ${src.source_name} after ${failCount} fails`);
+// ══════ РОЗБИВКА TELEGRAM ПОСТА ══════
+function splitTelegramPost(text) {
+  var pats = [
+    /\n\s*\n(?=[🔹🔸▪️•▶️➡️✅🔔💡📌🎯🌟⭐🟢🟡🔴])/u,
+    /\n\s*\n(?=\d+[.)]\s)/
+  ];
+  for (var i = 0; i < pats.length; i++) {
+    var parts = text.split(pats[i]).map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 40; });
+    if (parts.length >= 2) return parts;
+  }
+  return [text];
+}
+
+function stripHtml(h) {
+  return String(h||'').replace(/<[^>]*>/g,' ').replace(/&\w+;/g,' ').replace(/\s+/g,' ').trim().slice(0,3000);
+}
+
+// ══════ ПАРСЕР RSS (з підтримкою Atom + windowDays) ══════
+async function parseRSS(url, limit, windowDays) {
+  var resp = await safeFetch(url);
+  var xml = await resp.text();
+  var p = new XMLParser({ ignoreAttributes:false, attributeNamePrefix:'@_' });
+  var d = p.parse(xml);
+  var ch = (d.rss && d.rss.channel) ? d.rss.channel : (d.feed || {});
+  var entries = ch.item || ch.entry || [];
+  var arr = Array.isArray(entries) ? entries : (entries ? [entries] : []);
+  return arr
+    .filter(function(e){
+      var ds = e.pubDate || e.published || e.updated || '';
+      return isWithinWindow(ds, windowDays);
+    })
+    .slice(0, limit)
+    .map(function(e){
+      var link = e.link;
+      if (Array.isArray(link)) {
+        var alt = link.find(function(l){ return l['@_rel']==='alternate' || !l['@_rel']; });
+        link = alt ? (alt['@_href'] || alt['#text'] || '') : (link[0]['@_href'] || '');
+      } else if (typeof link === 'object') {
+        link = link['@_href'] || link['#text'] || '';
       }
-      await db.collection(COL.sources).doc(doc.id).update(upd);
-      // Зберігаємо в history
-      const snap2 = await db.collection(COL.sources).doc(doc.id).get();
-      const d2 = snap2.data();
-      let hist = Array.isArray(d2.scan_history) ? d2.scan_history : [];
-      hist.unshift(histEntry);
-      if (hist.length > 30) hist = hist.slice(0, 30);
-      await db.collection(COL.sources).doc(doc.id).update({ scan_history: hist });
+      var title = e.title;
+      if (typeof title === 'object') title = title['#text'] || '';
+      return {
+        title: String(title||'').trim(),
+        url: String(link||'').trim(),
+        description: stripHtml(e.description||e.summary||e['content:encoded']||e.content||''),
+        date: e.pubDate||e.published||e.updated||''
+      };
+    });
+}
+
+// ══════ ПАРСЕР TELEGRAM (з нормалізацією URL + windowDays) ══════
+async function parseTelegram(url, limit, windowDays) {
+  // Нормалізуємо: t.me/Channel → t.me/s/Channel (web preview)
+  var tUrl = url;
+  if (tUrl.indexOf('t.me/') >= 0 && tUrl.indexOf('t.me/s/') < 0) {
+    tUrl = tUrl.replace('t.me/', 't.me/s/');
+  }
+  var resp = await safeFetch(tUrl);
+  var html = await resp.text();
+  var $ = cheerio.load(html);
+  var items = [];
+  $('.tgme_widget_message_wrap').each(function() {
+    if (items.length >= limit) return false;
+    var msg = $(this);
+    var dateStr = msg.find('.tgme_widget_message_date time').attr('datetime') || '';
+    if (!isWithinWindow(dateStr, windowDays)) return;
+    var text = msg.find('.tgme_widget_message_text').text().trim();
+    if (!text || text.length < 30) return;
+    var lower = text.toLowerCase();
+    if (SPAM.some(function(w){ return lower.indexOf(w)>=0; })) return;
+    if (!GRANT_WORDS.some(function(w){ return lower.indexOf(w)>=0; })) return;
+    var links = [];
+    msg.find('.tgme_widget_message_text a[href]').each(function() {
+      var h = $(this).attr('href') || '';
+      if (h && !h.startsWith('tg://') && h.indexOf('t.me/') < 0) links.push(h);
+    });
+    var parts = splitTelegramPost(text);
+    if (parts.length > 1) {
+      parts.forEach(function(sp, i){
+        var l2 = sp.toLowerCase();
+        if (!GRANT_WORDS.some(function(w){ return l2.indexOf(w)>=0; })) return;
+        if (SPAM.some(function(w){ return l2.indexOf(w)>=0; })) return;
+        if (items.length < limit) items.push({ title:sp.slice(0,200), description:sp, url:links[i]||links[0]||'', date:dateStr });
+      });
+    } else {
+      items.push({ title:text.slice(0,200), description:text, url:links[0]||'', date:dateStr });
     }
   });
+  return items;
+}
 
-// ══════ ЩОДЕННИЙ ЛІЧИЛЬНИК о 23:55 ══════
-exports.dailyFoundCounter = functions.pubsub
-  .schedule('55 23 * * *')
-  .timeZone('Europe/Kyiv')
-  .onRun(async () => {
-    try {
-      var today = new Date().toISOString().slice(0, 10);
-      // Рахуємо скільки виявлено сьогодні
-      var snap = await db.collection('gf_detected')
-        .where('found_at', '>=', today + 'T00:00:00.000Z')
-        .where('found_at', '<=', today + 'T23:59:59.999Z')
-        .get();
-      var todayCount = snap.size;
+// ══════ ПАРСЕР СТОРІНКИ (з include/exclude + windowDays) ══════
+async function parsePageLinks(url, limit, src, windowDays) {
+  var resp = await safeFetch(url);
+  var html = await resp.text();
+  var $ = cheerio.load(html);
+  var items = [];
+  var includeKw = (src.link_include||'').toLowerCase().split(',').filter(Boolean);
+  var excludeKw = (src.link_exclude||'').toLowerCase().split(',').filter(Boolean);
+  // Спочатку шукаємо в контентних зонах, потім — всюди
+  var contentSel = ['main a[href]','article a[href]','.content a[href]','.grants a[href]','.opportunities a[href]','a[href]'];
+  for (var ci = 0; ci < contentSel.length; ci++) {
+    $(contentSel[ci]).each(function() {
+      if (items.length >= limit) return false;
+      var href = $(this).attr('href') || '';
+      var text = $(this).text().trim().replace(/\s+/g,' ');
+      if (!text || text.length < 12 || !href) return;
+      if (BAD_TITLE.some(function(re){ return re.test(text.trim()); })) return;
+      var fullUrl;
+      try { fullUrl = href.startsWith('http') ? href : new URL(href, url).toString(); } catch(e) { return; }
+      if (fullUrl===url || href.startsWith('#') || href.startsWith('javascript') || href.startsWith('mailto:')) return;
+      if (items.some(function(it){ return it.url === fullUrl; })) return;
+      var hay = (text + ' ' + href).toLowerCase();
+      if (includeKw.length && !includeKw.some(function(k){ return hay.indexOf(k.trim())>=0; })) return;
+      if (excludeKw.some(function(k){ return hay.indexOf(k.trim())>=0; })) return;
+      var parent = $(this).parent();
+      var dateEl = parent.find('time').attr('datetime') || parent.find('[class*="date"]').text().trim() || '';
+      if (dateEl && !isWithinWindow(dateEl, windowDays)) return;
+      items.push({ title:text, url:fullUrl, description:'', date:dateEl });
+    });
+    if (items.length >= 5) break;
+  }
+  return items;
+}
 
-      // Читаємо поточний total з лічильника
-      var statsRef = db.collection('gf_settings').doc('main_stats');
-      var statsSnap = await statsRef.get();
-      var currentTotal = statsSnap.exists ? (statsSnap.data().total || 0) : 0;
-
-      // Записуємо: total залишається як є (накопичувальний),
-      // додаємо запис у daily_history для графіку
-      var histRef = db.collection('gf_settings').doc('daily_history');
-      var histSnap = await histRef.get();
-      var history = histSnap.exists ? (histSnap.data().days || []) : [];
-      history.unshift({ date: today, count: todayCount, total: currentTotal });
-      if (history.length > 365) history = history.slice(0, 365);
-
-      await histRef.set({ days: history, updatedAt: new Date().toISOString() });
-      console.log('Daily counter: ' + today + ' found=' + todayCount + ' total=' + currentTotal);
-    } catch(e) {
-      console.error('dailyFoundCounter error:', e.message);
-    }
-  });
-
-// ══════ CORE ══════
+// ══════ CORE SCANNER ══════
 async function scanSingle(sourceId, src, maxNew) {
   maxNew = maxNew || 3;
-  const url = src.source_url || '';
-  const parser = (src.parser_mode || 'page_links').toLowerCase();
-  const now = new Date().toISOString();
-  let raw = [];
+  var url = src.source_url || '';
+  var parser = (src.parser_mode || 'page_links').toLowerCase();
+  var windowDays = parseInt(src.scan_window_days) || 7;
+  var now = new Date().toISOString();
+  var raw = [];
 
-  if (parser==='rss'||parser==='google_news_rss') raw = await parseRSS(url, 40);
-  else if (parser==='telegram') raw = await parseTelegram(url, 40);
-  else raw = await parsePageLinks(url, 40, src);
+  if (parser==='rss'||parser==='google_news_rss') raw = await parseRSS(url, 40, windowDays);
+  else if (parser==='telegram') raw = await parseTelegram(url, 40, windowDays);
+  else raw = await parsePageLinks(url, 40, src, windowDays);
 
-  let passed = 0;
-  const good = raw.filter(function(item) {
+  // Якщо сторінка дала мало — пробуємо мульти-грант парсинг
+  var isMulti = false;
+  if ((parser==='page_links') && raw.length < 3) {
+    var multi = await extractMultipleGrants(url);
+    if (multi && multi.length >= 3) { raw = multi; isMulti = true; }
+  }
+
+  // Фільтр: грантові + не службові навігаційні
+  var nonUaDropped = 0;
+  var passed = 0;
+  var good = raw.filter(function(item) {
+    if (isNavWord(item.title)) { nonUaDropped++; return false; }
     if (!passesFilter(item.title, item.description)) return false;
     passed++; return true;
   });
 
-  let created=0, dupes=0, detailed=0;
-  for (const item of good) {
+  var created=0, dupes=0, detailed=0;
+  for (var gi = 0; gi < good.length; gi++) {
+    var item = good[gi];
     if (created >= maxNew) break;
-    const norm = (item.title||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,200);
-    const dUrl = (item.url||'').toLowerCase().replace(/\/+$/,'');
-    if (norm) { const e = await db.collection(COL.scanIdx).where('normalized_title','==',norm).limit(1).get(); if(!e.empty){dupes++;continue;} }
-    if (dUrl) { const e = await db.collection(COL.scanIdx).where('canonical_url','==',dUrl).limit(1).get(); if(!e.empty){dupes++;continue;} }
+    var norm = (item.title||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,200);
+    var dUrl = (item.url||'').toLowerCase().replace(/\/+$/,'');
+    if (norm) { var e1 = await db.collection(COL.scanIdx).where('normalized_title','==',norm).limit(1).get(); if(!e1.empty){dupes++;continue;} }
+    if (dUrl) { var e2 = await db.collection(COL.scanIdx).where('canonical_url','==',dUrl).limit(1).get(); if(!e2.empty){dupes++;continue;} }
 
     var cls = classify(item.title||'', item.description||'');
     var fullText = '';
-    if (item.url && String(src.fetch_details) !== 'false') {
+    if (item.url && String(src.fetch_details) !== 'false' && !isMulti) {
       fullText = await fetchDetailPage(item.url);
       if (fullText && fullText.length > 100) {
         detailed++;
@@ -341,15 +533,14 @@ async function scanSingle(sourceId, src, maxNew) {
         if (!cls.deadline && cls2.deadline) cls.deadline = cls2.deadline;
         if (!cls.amount_text && cls2.amount_text) cls.amount_text = cls2.amount_text;
         if (!cls.topics && cls2.topics) cls.topics = cls2.topics;
-        if (cls2.topics && cls2.topics.split(',').length > cls.topics.split(',').length) cls.topics = cls2.topics;
+        if (cls2.topics && cls.topics && cls2.topics.split(',').length > cls.topics.split(',').length) cls.topics = cls2.topics;
         if (!cls.applicants && cls2.applicants) cls.applicants = cls2.applicants;
-        if (cls2.applicants && cls2.applicants.split(',').length > cls.applicants.split(',').length) cls.applicants = cls2.applicants;
         if (!cls.geography && cls2.geography) cls.geography = cls2.geography;
         if (cls2.auto_priority === 'high') cls.auto_priority = 'high';
       }
     }
 
-    const detId = 'det_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    var detId = 'det_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
     await db.collection(COL.detected).doc(detId).set({
       detected_id:detId, source_id:sourceId, source_name:src.source_name||'',
       source_url:url, detail_url:item.url||'',
@@ -374,26 +565,20 @@ async function scanSingle(sourceId, src, maxNew) {
     created++;
   }
 
-  // Визначаємо статус сканування
-  let scanStatus = 'empty';
+  var scanStatus = 'empty';
   if (raw.length > 0 && good.length === 0) scanStatus = 'filtered';
   else if (created > 0) scanStatus = 'ok_new';
-  else if (dupes > 0) scanStatus = 'ok_dupes';
-  else if (good.length > 0) scanStatus = 'ok_dupes';
+  else if (dupes > 0 || good.length > 0) scanStatus = 'ok_dupes';
 
-  const cnt = parseInt(src.found_count)||0;
-  const histEntry = {
-    at: now, status: scanStatus,
-    raw: raw.length, passed, new: created, dupes, error: ''
-  };
+  var cnt = parseInt(src.found_count)||0;
+  var histEntry = { at:now, status:scanStatus, raw:raw.length, passed:passed, new:created, dupes:dupes, non_ua:nonUaDropped, multi:isMulti, error:'' };
 
-  // Оновлюємо документ джерела з усіма полями
-  const upd = {
+  var upd = {
     last_checked_at: now,
     last_success_at: created > 0 ? now : (src.last_success_at||''),
     found_count: cnt + created,
     last_error: '',
-    consecutive_fails: 0, // скидаємо лічильник помилок
+    consecutive_fails: 0,
     last_scan_status: scanStatus,
     last_scan_raw: raw.length,
     last_scan_passed: passed,
@@ -403,151 +588,225 @@ async function scanSingle(sourceId, src, maxNew) {
   };
   await db.collection(COL.sources).doc(sourceId).update(upd);
 
-  // Зберігаємо в history
-  const snap = await db.collection(COL.sources).doc(sourceId).get();
-  const d = snap.data();
-  let hist = Array.isArray(d.scan_history) ? d.scan_history : [];
+  var snap = await db.collection(COL.sources).doc(sourceId).get();
+  var dd = snap.data();
+  var hist = Array.isArray(dd.scan_history) ? dd.scan_history : [];
   hist.unshift(histEntry);
   if (hist.length > 30) hist = hist.slice(0, 30);
   await db.collection(COL.sources).doc(sourceId).update({ scan_history: hist });
 
-  return { sourceId, checked:raw.length, passed, created, dupes, detailed };
+  return { sourceId:sourceId, checked:raw.length, passed:passed, created:created, dupes:dupes, detailed:detailed, isMulti:isMulti };
 }
 
-// ══════ ПАРСЕРИ З ПЕРЕВІРКОЮ СТАТУСУ ══════
-async function parseRSS(url, limit) {
-  const resp = await safeFetch(url); // кидає помилку якщо не 2xx
-  const xml = await resp.text();
-  const p = new XMLParser({ignoreAttributes:false, attributeNamePrefix:'@_'});
-  const d = p.parse(xml);
-  // Підтримка RSS і Atom
-  const ch = (d.rss && d.rss.channel) ? d.rss.channel : (d.feed || {});
-  const entries = ch.item || ch.entry || [];
-  const arr = Array.isArray(entries) ? entries : (entries ? [entries] : []);
-  return arr.slice(0, limit).map(function(e) {
-    var link = e.link;
-    // Atom: link може бути об'єктом {#text, @_href} або масивом
-    if (Array.isArray(link)) {
-      var alt = link.find(function(l) { return l['@_rel'] === 'alternate' || !l['@_rel']; });
-      link = alt ? (alt['@_href'] || alt['#text'] || '') : (link[0]['@_href'] || '');
-    } else if (typeof link === 'object') {
-      link = link['@_href'] || link['#text'] || '';
-    }
-    var title = e.title;
-    if (typeof title === 'object') title = title['#text'] || title['@_'] || '';
-    return {
-      title: String(title||'').trim(),
-      url: String(link||'').trim(),
-      description: stripHtml(e.description||e.summary||e['content:encoded']||e.content||''),
-      date: e.pubDate||e.published||e.updated||''
-    };
-  });
-}
+// ══════ ОБРОБКА ПОМИЛКИ СКАНУВАННЯ ══════
+async function handleScanError(docId, src, e) {
+  var now = new Date().toISOString();
+  var failCount = (parseInt(src.consecutive_fails) || 0) + 1;
+  // Код помилки
+  var errLabel = '';
+  if (e.code === 'ENOTFOUND' || e.code === 'EAI_AGAIN') errLabel = 'Домен не знайдено (DNS)';
+  else if (e.code === 'ECONNREFUSED') errLabel = "З'єднання відхилено";
+  else if (e.code === 'EHOSTUNREACH') errLabel = 'Хост недоступний';
+  else if (e.type === 'aborted' || /timeout/i.test(e.message)) errLabel = 'Таймаут';
+  else if (/HTTP 403/.test(e.message)) errLabel = 'Доступ заборонено (403)';
+  else if (/HTTP 404/.test(e.message)) errLabel = 'Не знайдено (404)';
+  else if (/HTTP 503/.test(e.message)) errLabel = 'Сервіс недоступний (503)';
 
-async function parseTelegram(url, limit) {
-  // Нормалізуємо URL: t.me/ChannelName → t.me/s/ChannelName
-  let tUrl = url;
-  if (tUrl.includes('t.me/') && !tUrl.includes('t.me/s/')) {
-    tUrl = tUrl.replace('t.me/', 't.me/s/');
+  var histEntry = { at:now, status:'error', raw:0, passed:0, new:0, dupes:0, error:(errLabel||'')+' '+e.message.slice(0,150) };
+  var upd = {
+    last_checked_at: now,
+    last_error: (errLabel ? errLabel + ': ' : '') + e.message.slice(0, 400),
+    last_scan_status: 'error',
+    last_scan_raw: 0, last_scan_new: 0, last_scan_dupes: 0,
+    consecutive_fails: failCount
+  };
+  // DNS-помилки (домен не існує) — пауза одразу після 3 спроб
+  var dnsErr = (e.code === 'ENOTFOUND' || e.code === 'EAI_AGAIN');
+  var pauseThreshold = dnsErr ? 3 : MAX_FAILS_BEFORE_PAUSE;
+  if (failCount >= pauseThreshold) {
+    upd.source_status = 'paused';
+    upd.pause_reason = 'Авто-пауза: ' + failCount + ' помилок поспіль. ' + (errLabel || e.message.slice(0,80));
   }
-  const resp = await safeFetch(tUrl);
-  const html = await resp.text();
-  const $ = cheerio.load(html);
-  const items = [];
-  $('.tgme_widget_message_wrap').each(function() {
-    if (items.length >= limit) return false;
-    const msg = $(this);
-    const text = msg.find('.tgme_widget_message_text').text().trim();
-    const links = [];
-    msg.find('.tgme_widget_message_text a[href]').each(function() {
-      var h = $(this).attr('href') || '';
-      if (h && !h.startsWith('tg://') && !h.includes('t.me/')) links.push(h);
-    });
-    const date = msg.find('.tgme_widget_message_date time').attr('datetime') || '';
-    if (text && text.length > 30) {
-      items.push({ title:text.slice(0,200), description:text, url:links[0]||'', date:date });
+  await db.collection(COL.sources).doc(docId).update(upd);
+  var snap2 = await db.collection(COL.sources).doc(docId).get();
+  var d2 = snap2.data();
+  var hist = Array.isArray(d2.scan_history) ? d2.scan_history : [];
+  hist.unshift(histEntry);
+  if (hist.length > 30) hist = hist.slice(0, 30);
+  await db.collection(COL.sources).doc(docId).update({ scan_history: hist });
+}
+
+// ══════════════════════════════════════════════════════════════
+// EXPORTS — всі 8 функцій
+// ══════════════════════════════════════════════════════════════
+
+// 1. Scheduled — кожну хвилину, з урахуванням інтервалу джерела
+exports.scanScheduled = functions.pubsub
+  .schedule('every 1 minutes')
+  .timeZone('Europe/Kyiv')
+  .onRun(async () => {
+    var snap = await db.collection(COL.sources)
+      .where('source_status','==','active')
+      .orderBy('last_checked_at','asc')
+      .limit(10).get();
+    if (snap.empty) { console.log('No active sources'); return; }
+    var now = Date.now();
+    var doc = null, src = null;
+    for (var i = 0; i < snap.docs.length; i++) {
+      var s = snap.docs[i].data();
+      var intervalMin = parseInt(s.scan_interval_min) || 1;
+      var lastMs = s.last_checked_at ? new Date(s.last_checked_at).getTime() : 0;
+      if ((now - lastMs) / 60000 >= intervalMin) { doc = snap.docs[i]; src = s; break; }
+    }
+    if (!doc) { console.log('No sources due'); return; }
+    console.log('Scan: ' + (src.source_name || doc.id));
+    try {
+      var r = await scanSingle(doc.id, src, 3);
+      console.log('Done: raw=' + r.checked + ' new=' + r.created + ' dup=' + r.dupes);
+    } catch (e) {
+      console.error('Error: ' + e.message);
+      await handleScanError(doc.id, src, e);
     }
   });
-  return items;
-}
 
-async function parsePageLinks(url, limit, src) {
-  const resp = await safeFetch(url);
-  const html = await resp.text();
-  const $ = cheerio.load(html);
-  const items = [];
-  // Спочатку шукаємо посилання в контентних блоках
-  const contentSelectors = ['main a[href]', 'article a[href]', '.content a[href]',
-    '.grants a[href]', '.opportunities a[href]', '.items a[href]', 'a[href]'];
-  let found = false;
-  for (const sel of contentSelectors) {
-    $(sel).each(function() {
-      if (items.length >= limit) return false;
-      const href = $(this).attr('href') || '';
-      const text = $(this).text().trim().replace(/\s+/g, ' ');
-      if (!text || text.length < 12 || !href) return;
-      let fullUrl;
-      try { fullUrl = href.startsWith('http') ? href : new URL(href, url).toString(); } catch(e) { return; }
-      if (fullUrl === url || href.startsWith('#') || href.startsWith('javascript') || href.startsWith('mailto:')) return;
-      // Уникаємо дублів
-      if (items.some(function(i) { return i.url === fullUrl; })) return;
-      items.push({ title:text, url:fullUrl, description:'' });
-    });
-    if (items.length >= 5) { found = true; break; }
+// 2. HTTP: Scan one source (ручне сканування з UI)
+exports.scanSource = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin','*');
+  res.set('Access-Control-Allow-Methods','POST,OPTIONS');
+  res.set('Access-Control-Allow-Headers','Content-Type');
+  if (req.method==='OPTIONS') return res.status(204).send('');
+  try {
+    var sourceId = (req.body || {}).sourceId;
+    if (!sourceId) return res.status(400).json({ error:'sourceId required' });
+    var srcDoc = await db.collection(COL.sources).doc(sourceId).get();
+    if (!srcDoc.exists) return res.status(404).json({ error:'Source not found' });
+    try {
+      var result = await scanSingle(sourceId, srcDoc.data(), 10);
+      res.json(result);
+    } catch(scanErr) {
+      await handleScanError(sourceId, srcDoc.data(), scanErr);
+      res.status(200).json({ error: scanErr.message, sourceId: sourceId, created: 0 });
+    }
+  } catch(e) {
+    console.error('scanSource error:', e);
+    res.status(500).json({ error:e.message });
   }
-  return items;
-}
+});
 
-function stripHtml(h) {
-  return String(h||'').replace(/<[^>]*>/g,' ').replace(/&\w+;/g,' ').replace(/\s+/g,' ').trim().slice(0,3000);
-}
+// 3. HTTP: Scan all active sources
+exports.scanAll = functions
+  .runWith({ timeoutSeconds:540, memory:'1GB' })
+  .https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin','*');
+    res.set('Access-Control-Allow-Methods','POST,GET,OPTIONS');
+    res.set('Access-Control-Allow-Headers','Content-Type');
+    if (req.method==='OPTIONS') return res.status(204).send('');
+    try {
+      var snap = await db.collection(COL.sources).where('source_status','==','active').get();
+      var processed=0, created=0, errors=0;
+      for (var i = 0; i < snap.docs.length; i++) {
+        var doc = snap.docs[i];
+        try { var r = await scanSingle(doc.id, doc.data(), 5); processed++; created += r.created||0; }
+        catch(e) { errors++; try { await handleScanError(doc.id, doc.data(), e); } catch(_){} }
+      }
+      res.json({ processed:processed, created:created, errors:errors, total:snap.size });
+    } catch(e) { res.status(500).json({ error:e.message }); }
+  });
 
+// 4. HTTP: Відхилити запис
+exports.rejectDetected = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin','*');
+  res.set('Access-Control-Allow-Methods','POST,OPTIONS');
+  res.set('Access-Control-Allow-Headers','Content-Type');
+  if (req.method==='OPTIONS') return res.status(204).send('');
+  try {
+    var body = req.body || {};
+    var detectedId = body.detectedId, reason = body.reason;
+    if (!detectedId) return res.status(400).json({ error:'detectedId required' });
+    await db.collection(COL.detected).doc(detectedId).update({
+      status: 'Відхилено',
+      rejection_reason: reason || 'other',
+      rejected_at: new Date().toISOString()
+    });
+    res.json({ ok:true, detectedId:detectedId, reason:reason||'other' });
+  } catch(e) {
+    console.error('rejectDetected error:', e);
+    res.status(500).json({ error:e.message });
+  }
+});
 
-/* ══════ DAILY COUNTER: кожного дня о 23:55 ══════ */
-exports.dailyDetectedCount = functions.pubsub
+// 5. HTTP: Очистити логи сканування джерела
+exports.clearScanLogs = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin','*');
+  res.set('Access-Control-Allow-Methods','POST,OPTIONS');
+  res.set('Access-Control-Allow-Headers','Content-Type');
+  if (req.method==='OPTIONS') return res.status(204).send('');
+  try {
+    var sourceId = (req.body || {}).sourceId;
+    if (!sourceId) return res.status(400).json({ error:'sourceId required' });
+    await db.collection(COL.sources).doc(sourceId).update({
+      scan_history: [], last_error: '', consecutive_fails: 0
+    });
+    res.json({ ok:true, sourceId:sourceId });
+  } catch(e) {
+    console.error('clearScanLogs error:', e);
+    res.status(500).json({ error:e.message });
+  }
+});
+
+// 6. HTTP: Health check
+exports.healthCheck = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin','*');
+  try {
+    var snap = await db.collection(COL.sources).where('source_status','==','active').get();
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6' });
+  } catch(e) { res.status(500).json({ error:e.message }); }
+});
+
+// 7. Scheduled: щоденний лічильник знайдених о 23:55
+exports.dailyFoundCounter = functions.pubsub
   .schedule('55 23 * * *')
   .timeZone('Europe/Kyiv')
   .onRun(async () => {
-    var today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    var todayStart = today + 'T00:00:00.000Z';
-    var todayEnd   = today + 'T23:59:59.999Z';
     try {
-      // Рахуємо скільки знайдено сьогодні
+      var today = new Date().toISOString().slice(0, 10);
       var snap = await db.collection(COL.detected)
-        .where('found_at', '>=', todayStart)
-        .where('found_at', '<=', todayEnd)
+        .where('found_at', '>=', today + 'T00:00:00.000Z')
+        .where('found_at', '<=', today + 'T23:59:59.999Z')
         .get();
       var todayCount = snap.size;
+      var statsRef = db.collection('gf_settings').doc('main_stats');
+      var statsSnap = await statsRef.get();
+      var currentTotal = statsSnap.exists ? (statsSnap.data().total || 0) : 0;
+      var histRef = db.collection('gf_settings').doc('daily_history');
+      var histSnap = await histRef.get();
+      var history = histSnap.exists ? (histSnap.data().days || []) : [];
+      history.unshift({ date: today, count: todayCount, total: currentTotal });
+      if (history.length > 365) history = history.slice(0, 365);
+      await histRef.set({ days: history, updatedAt: new Date().toISOString() });
+      console.log('Daily counter: ' + today + ' found=' + todayCount);
+    } catch(e) { console.error('dailyFoundCounter error:', e.message); }
+  });
 
-      if (todayCount > 0) {
-        // Додаємо до накопиченого лічильника
-        var statsRef = db.collection('gf_settings').doc('main_stats');
-        var statsSnap = await statsRef.get();
-        if (statsSnap.exists) {
-          var cur = parseInt(statsSnap.data().total || 0);
-          // total вже містить всі записи — оновлюємо точне значення
-          // Також зберігаємо lastDailyCount для відображення
-          await statsRef.update({
-            total: cur, // залишаємо як є (rebuild дає точне значення)
-            lastDailyCount: todayCount,
-            lastDailyDate: today,
-            updatedAt: new Date().toISOString()
-          });
-        } else {
-          // Перший запуск — рахуємо все
-          var allSnap = await db.collection(COL.detected).get();
-          await statsRef.set({
-            total: allSnap.size,
-            lastDailyCount: todayCount,
-            lastDailyDate: today,
-            updatedAt: new Date().toISOString()
-          });
-        }
-        console.log('Daily count: ' + todayCount + ' new detected on ' + today);
-      } else {
-        console.log('Daily count: 0 new detected on ' + today);
+// 8. Scheduled: щоденний підрахунок загальної кількості detected о 23:50
+exports.dailyDetectedCount = functions.pubsub
+  .schedule('50 23 * * *')
+  .timeZone('Europe/Kyiv')
+  .onRun(async () => {
+    try {
+      // Рахуємо всю колекцію detected батчами
+      var total = 0, last = null;
+      while (true) {
+        var q = db.collection(COL.detected).orderBy('detected_id').limit(500);
+        if (last) q = q.startAfter(last);
+        var snap = await q.get();
+        total += snap.size;
+        if (snap.docs.length < 500) break;
+        last = snap.docs[snap.docs.length - 1].data().detected_id;
       }
-    } catch(e) {
-      console.error('Daily counter error:', e.message);
-    }
+      await db.collection('gf_settings').doc('main_stats').set({
+        total: total, updatedAt: new Date().toISOString()
+      }, { merge: true });
+      console.log('Daily detected total: ' + total);
+    } catch(e) { console.error('dailyDetectedCount error:', e.message); }
   });
