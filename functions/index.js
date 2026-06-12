@@ -1,5 +1,5 @@
 /**
- * GrantFlow ScanEngine v6 — об'єднана версія
+ * GrantFlow ScanEngine v6.1 — об'єднана версія + фікс Google News 503
  * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
  * Виправлення зі звіту 08.06:
  *  - Google News 503: ротація User-Agent + retry з паузою
@@ -524,7 +524,11 @@ async function scanSingle(sourceId, src, maxNew) {
 
     var cls = classify(item.title||'', item.description||'');
     var fullText = '';
-    if (item.url && String(src.fetch_details) !== 'false' && !isMulti) {
+    // Google News дає redirect-посилання (news.google.com/rss/articles/...),
+    // які при detail-fetch повертають 503 і валять усе джерело. Тому для
+    // google_news_rss НЕ робимо detail-fetch — заголовка+опису достатньо.
+    var isGoogleNews = (parser === 'google_news_rss') || (item.url || '').indexOf('news.google.com') >= 0;
+    if (item.url && String(src.fetch_details) !== 'false' && !isMulti && !isGoogleNews) {
       fullText = await fetchDetailPage(item.url);
       if (fullText && fullText.length > 100) {
         detailed++;
@@ -759,7 +763,7 @@ exports.healthCheck = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin','*');
   try {
     var snap = await db.collection(COL.sources).where('source_status','==','active').get();
-    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6' });
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6.1' });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 
