@@ -1,5 +1,5 @@
 /**
- * GrantFlow ScanEngine v6.2 — фікс scanScheduled (індекс) + clearScanLogs all + fnBase
+ * GrantFlow ScanEngine v6.3 — пакетне сканування + краща дедуплікація + scanDebug діагностика
  * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
  * Виправлення зі звіту 08.06:
  *  - Google News 503: ротація User-Agent + retry з паузою
@@ -513,14 +513,18 @@ async function scanSingle(sourceId, src, maxNew) {
     passed++; return true;
   });
 
-  var created=0, dupes=0, detailed=0;
+  var created=0, dupes=0, detailed=0, skippedLimit=0;
   for (var gi = 0; gi < good.length; gi++) {
     var item = good[gi];
-    if (created >= maxNew) break;
     var norm = (item.title||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,200);
     var dUrl = (item.url||'').toLowerCase().replace(/\/+$/,'');
-    if (norm) { var e1 = await db.collection(COL.scanIdx).where('normalized_title','==',norm).limit(1).get(); if(!e1.empty){dupes++;continue;} }
-    if (dUrl) { var e2 = await db.collection(COL.scanIdx).where('canonical_url','==',dUrl).limit(1).get(); if(!e2.empty){dupes++;continue;} }
+    // Перевірка дублів — для ВСІХ елементів (не виходимо рано)
+    var isDupe = false;
+    if (norm) { var e1 = await db.collection(COL.scanIdx).where('normalized_title','==',norm).limit(1).get(); if(!e1.empty) isDupe = true; }
+    if (!isDupe && dUrl) { var e2 = await db.collection(COL.scanIdx).where('canonical_url','==',dUrl).limit(1).get(); if(!e2.empty) isDupe = true; }
+    if (isDupe) { dupes++; continue; }
+    // Новий грант — але якщо вже досягли ліміту створення, рахуємо окремо
+    if (created >= maxNew) { skippedLimit++; continue; }
 
     var cls = classify(item.title||'', item.description||'');
     var fullText = '';
@@ -575,7 +579,7 @@ async function scanSingle(sourceId, src, maxNew) {
   else if (dupes > 0 || good.length > 0) scanStatus = 'ok_dupes';
 
   var cnt = parseInt(src.found_count)||0;
-  var histEntry = { at:now, status:scanStatus, raw:raw.length, passed:passed, new:created, dupes:dupes, non_ua:nonUaDropped, multi:isMulti, error:'' };
+  var histEntry = { at:now, status:scanStatus, raw:raw.length, passed:passed, new:created, dupes:dupes, non_ua:nonUaDropped, multi:isMulti, skipped_limit:skippedLimit, error:'' };
 
   var upd = {
     last_checked_at: now,
@@ -599,7 +603,7 @@ async function scanSingle(sourceId, src, maxNew) {
   if (hist.length > 30) hist = hist.slice(0, 30);
   await db.collection(COL.sources).doc(sourceId).update({ scan_history: hist });
 
-  return { sourceId:sourceId, checked:raw.length, passed:passed, created:created, dupes:dupes, detailed:detailed, isMulti:isMulti };
+  return { sourceId:sourceId, checked:raw.length, passed:passed, created:created, dupes:dupes, detailed:detailed, isMulti:isMulti, skippedLimit:skippedLimit };
 }
 
 // ══════ ОБРОБКА ПОМИЛКИ СКАНУВАННЯ ══════
@@ -644,40 +648,53 @@ async function handleScanError(docId, src, e) {
 // EXPORTS — всі 8 функцій
 // ══════════════════════════════════════════════════════════════
 
-// 1. Scheduled — кожну хвилину, з урахуванням інтервалу джерела
-exports.scanScheduled = functions.pubsub
+// 1. Scheduled — кожну хвилину, сканує ПАКЕТ джерел за раз
+exports.scanScheduled = functions
+  .runWith({ timeoutSeconds: 300, memory: '512MB' })
+  .pubsub
   .schedule('every 1 minutes')
   .timeZone('Europe/Kyiv')
   .onRun(async () => {
     // БЕЗ orderBy щоб не залежати від композитного індексу Firestore
-    // (інакше scheduled падає мовчки якщо індексу немає)
     var snap = await db.collection(COL.sources)
       .where('source_status','==','active')
       .get();
-    if (snap.empty) { console.log('No active sources'); return; }
+    if (snap.empty) { console.log('SCHED: No active sources'); return null; }
     var now = Date.now();
-    // Сортуємо в пам'яті за давністю перевірки
+    // Сортуємо в пам'яті за давністю перевірки (найстаріші перші)
     var docsSorted = snap.docs.slice().sort(function(a, b) {
       var ta = a.data().last_checked_at ? new Date(a.data().last_checked_at).getTime() : 0;
       var tb = b.data().last_checked_at ? new Date(b.data().last_checked_at).getTime() : 0;
       return ta - tb;
     });
-    var doc = null, src = null;
+    // Збираємо всі джерела що "due" (час прийшов)
+    var due = [];
     for (var i = 0; i < docsSorted.length; i++) {
       var s = docsSorted[i].data();
       var intervalMin = parseInt(s.scan_interval_min) || 1;
       var lastMs = s.last_checked_at ? new Date(s.last_checked_at).getTime() : 0;
-      if ((now - lastMs) / 60000 >= intervalMin) { doc = docsSorted[i]; src = s; break; }
+      if ((now - lastMs) / 60000 >= intervalMin) due.push(docsSorted[i]);
     }
-    if (!doc) { console.log('No sources due'); return; }
-    console.log('Scan: ' + (src.source_name || doc.id));
-    try {
-      var r = await scanSingle(doc.id, src, 3);
-      console.log('Done: raw=' + r.checked + ' new=' + r.created + ' dup=' + r.dupes);
-    } catch (e) {
-      console.error('Error: ' + e.message);
-      await handleScanError(doc.id, src, e);
+    console.log('SCHED: active=' + snap.size + ' due=' + due.length);
+    if (due.length === 0) { console.log('SCHED: nothing due'); return null; }
+    // Сканимо до 8 джерел за виклик (щоб вкластись у таймаут)
+    var BATCH = 8;
+    var processed = 0, created = 0, errors = 0;
+    for (var j = 0; j < due.length && j < BATCH; j++) {
+      var doc = due[j];
+      var src = doc.data();
+      try {
+        var r = await scanSingle(doc.id, src, 3);
+        processed++; created += (r.created || 0);
+        console.log('SCHED ok: ' + (src.source_name || doc.id) + ' raw=' + r.checked + ' new=' + r.created + ' dup=' + r.dupes);
+      } catch (e) {
+        errors++;
+        console.error('SCHED err: ' + (src.source_name || doc.id) + ' — ' + e.message);
+        try { await handleScanError(doc.id, src, e); } catch(_){}
+      }
     }
+    console.log('SCHED done: processed=' + processed + ' created=' + created + ' errors=' + errors);
+    return null;
   });
 
 // 2. HTTP: Scan one source (ручне сканування з UI)
@@ -786,9 +803,138 @@ exports.healthCheck = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin','*');
   try {
     var snap = await db.collection(COL.sources).where('source_status','==','active').get();
-    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6.2' });
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6.3' });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
+
+// 6b. HTTP: Розгорнута діагностика одного джерела (БЕЗ запису в базу)
+// Показує сирі дані ДО і ПІСЛЯ кожного етапу — щоб бачити ЧОМУ мало результатів.
+// Виклик: .../scanDebug?sourceId=XXX
+exports.scanDebug = functions
+  .runWith({ timeoutSeconds: 120, memory: '512MB' })
+  .https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin','*');
+    res.set('Access-Control-Allow-Methods','POST,GET,OPTIONS');
+    res.set('Access-Control-Allow-Headers','Content-Type');
+    if (req.method==='OPTIONS') return res.status(204).send('');
+    try {
+      var sourceId = (req.query && req.query.sourceId) || (req.body && req.body.sourceId);
+      if (!sourceId) return res.status(400).json({ error:'sourceId required (?sourceId=XXX)' });
+      var srcDoc = await db.collection(COL.sources).doc(sourceId).get();
+      if (!srcDoc.exists) return res.status(404).json({ error:'Source not found' });
+      var src = srcDoc.data();
+      var url = src.source_url || '';
+      var parser = (src.parser_mode || 'page_links').toLowerCase();
+      var windowDays = parseInt(src.scan_window_days) || 7;
+      var dbg = { source_name: src.source_name, source_id: sourceId, url: url, parser: parser, window_days: windowDays, status: src.source_status, steps: {} };
+
+      var raw = [];
+      try {
+        if (parser==='rss'||parser==='google_news_rss') raw = await parseRSS(url, 40, windowDays);
+        else if (parser==='telegram') raw = await parseTelegram(url, 40, windowDays);
+        else raw = await parsePageLinks(url, 40, src, windowDays);
+        dbg.steps['1_raw_parse'] = { count: raw.length, samples: raw.slice(0,10).map(function(x){ return { title:(x.title||'').slice(0,80), url:(x.url||'').slice(0,80), has_date:!!x.date }; }) };
+      } catch(e) {
+        dbg.steps['1_raw_parse'] = { error: e.message, code: e.code || '' };
+        return res.json(dbg);
+      }
+
+      var isMulti = false;
+      if (parser==='page_links' && raw.length < 3) {
+        try {
+          var multi = await extractMultipleGrants(url);
+          if (multi && multi.length >= 3) { raw = multi; isMulti = true; }
+          dbg.steps['2_multi_grant'] = { triggered:true, found: multi ? multi.length : 0, used: isMulti };
+        } catch(e) { dbg.steps['2_multi_grant'] = { triggered:true, error: e.message }; }
+      } else {
+        dbg.steps['2_multi_grant'] = { triggered:false, reason: parser!=='page_links' ? 'not a page' : 'enough raw items' };
+      }
+
+      var navDropped = [], filterDropped = [], passedItems = [];
+      raw.forEach(function(item) {
+        if (isNavWord(item.title)) { navDropped.push((item.title||'').slice(0,60)); return; }
+        if (!passesFilter(item.title, item.description)) { filterDropped.push((item.title||'').slice(0,60)); return; }
+        passedItems.push(item);
+      });
+      dbg.steps['3_filter'] = {
+        passed: passedItems.length,
+        nav_dropped: navDropped.length, nav_samples: navDropped.slice(0,8),
+        filter_dropped: filterDropped.length, filter_samples: filterDropped.slice(0,8),
+        passed_samples: passedItems.slice(0,10).map(function(x){ return (x.title||'').slice(0,70); })
+      };
+
+      var newItems = [], dupeItems = [];
+      for (var i = 0; i < passedItems.length; i++) {
+        var item = passedItems[i];
+        var norm = (item.title||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,200);
+        var dUrl = (item.url||'').toLowerCase().replace(/\/+$/,'');
+        var isDupe = false;
+        if (norm) { var e1 = await db.collection(COL.scanIdx).where('normalized_title','==',norm).limit(1).get(); if(!e1.empty) isDupe = true; }
+        if (!isDupe && dUrl) { var e2 = await db.collection(COL.scanIdx).where('canonical_url','==',dUrl).limit(1).get(); if(!e2.empty) isDupe = true; }
+        if (isDupe) dupeItems.push((item.title||'').slice(0,60));
+        else newItems.push((item.title||'').slice(0,60));
+      }
+      dbg.steps['4_dedup'] = { new: newItems.length, new_samples: newItems.slice(0,10), dupes: dupeItems.length, dupe_samples: dupeItems.slice(0,8) };
+
+      dbg.summary = {
+        raw: raw.length, after_filter: passedItems.length, would_create: newItems.length,
+        verdict: newItems.length > 0 ? ('Знайде ' + newItems.length + ' нових') :
+                 (raw.length === 0 ? 'Джерело повертає 0 (порожньо/блок)' :
+                 (passedItems.length === 0 ? 'Все відсіяно фільтром' : 'Все дублі (нових немає)'))
+      };
+      res.json(dbg);
+    } catch(e) {
+      console.error('scanDebug error:', e);
+      res.status(500).json({ error:e.message, stack:(e.stack||'').slice(0,300) });
+    }
+  });
+
+// 6c. HTTP: Загальна статистика бази (скільки всього грантів, по статусах)
+// Виклик: .../stats
+exports.stats = functions
+  .runWith({ timeoutSeconds: 120, memory: '512MB' })
+  .https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin','*');
+    try {
+      // Рахуємо detected батчами
+      var total = 0, byStatus = {}, last = null;
+      while (true) {
+        var q = db.collection(COL.detected).orderBy('detected_id').limit(500);
+        if (last) q = q.startAfter(last);
+        var snap = await q.get();
+        snap.docs.forEach(function(d) {
+          total++;
+          var st = d.data().status || 'Невідомо';
+          byStatus[st] = (byStatus[st] || 0) + 1;
+        });
+        if (snap.docs.length < 500) break;
+        last = snap.docs[snap.docs.length - 1].data().detected_id;
+      }
+      // Скільки в scan_index (кеш дедуплікації)
+      var idxTotal = 0, idxLast = null;
+      while (true) {
+        var qi = db.collection(COL.scanIdx).orderBy('detected_id').limit(500);
+        if (idxLast) qi = qi.startAfter(idxLast);
+        var si = await qi.get();
+        idxTotal += si.size;
+        if (si.docs.length < 500) break;
+        idxLast = si.docs[si.docs.length - 1].data().detected_id;
+      }
+      // Активні джерела
+      var srcSnap = await db.collection(COL.sources).where('source_status','==','active').get();
+      res.json({
+        ok: true,
+        detected_total: total,
+        by_status: byStatus,
+        scan_index_size: idxTotal,
+        active_sources: srcSnap.size,
+        time: new Date().toISOString()
+      });
+    } catch(e) {
+      console.error('stats error:', e);
+      res.status(500).json({ error:e.message });
+    }
+  });
 
 // 7. Scheduled: щоденний лічильник знайдених о 23:55
 exports.dailyFoundCounter = functions.pubsub
