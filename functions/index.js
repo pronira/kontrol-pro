@@ -1,5 +1,5 @@
 /**
- * GrantFlow ScanEngine v6.1 — об'єднана версія + фікс Google News 503
+ * GrantFlow ScanEngine v6.2 — фікс scanScheduled (індекс) + clearScanLogs all + fnBase
  * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
  * Виправлення зі звіту 08.06:
  *  - Google News 503: ротація User-Agent + retry з паузою
@@ -649,18 +649,25 @@ exports.scanScheduled = functions.pubsub
   .schedule('every 1 minutes')
   .timeZone('Europe/Kyiv')
   .onRun(async () => {
+    // БЕЗ orderBy щоб не залежати від композитного індексу Firestore
+    // (інакше scheduled падає мовчки якщо індексу немає)
     var snap = await db.collection(COL.sources)
       .where('source_status','==','active')
-      .orderBy('last_checked_at','asc')
-      .limit(10).get();
+      .get();
     if (snap.empty) { console.log('No active sources'); return; }
     var now = Date.now();
+    // Сортуємо в пам'яті за давністю перевірки
+    var docsSorted = snap.docs.slice().sort(function(a, b) {
+      var ta = a.data().last_checked_at ? new Date(a.data().last_checked_at).getTime() : 0;
+      var tb = b.data().last_checked_at ? new Date(b.data().last_checked_at).getTime() : 0;
+      return ta - tb;
+    });
     var doc = null, src = null;
-    for (var i = 0; i < snap.docs.length; i++) {
-      var s = snap.docs[i].data();
+    for (var i = 0; i < docsSorted.length; i++) {
+      var s = docsSorted[i].data();
       var intervalMin = parseInt(s.scan_interval_min) || 1;
       var lastMs = s.last_checked_at ? new Date(s.last_checked_at).getTime() : 0;
-      if ((now - lastMs) / 60000 >= intervalMin) { doc = snap.docs[i]; src = s; break; }
+      if ((now - lastMs) / 60000 >= intervalMin) { doc = docsSorted[i]; src = s; break; }
     }
     if (!doc) { console.log('No sources due'); return; }
     console.log('Scan: ' + (src.source_name || doc.id));
@@ -746,12 +753,28 @@ exports.clearScanLogs = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Headers','Content-Type');
   if (req.method==='OPTIONS') return res.status(204).send('');
   try {
-    var sourceId = (req.body || {}).sourceId;
-    if (!sourceId) return res.status(400).json({ error:'sourceId required' });
+    var body = req.body || {};
+    // Масове очищення (кнопка "Очистити звіт") — all:true
+    if (body.all === true) {
+      var allSnap = await db.collection(COL.sources).get();
+      var cleared = 0;
+      var batch = db.batch();
+      var opCount = 0;
+      for (var i = 0; i < allSnap.docs.length; i++) {
+        batch.update(allSnap.docs[i].ref, { scan_history: [], last_error: '', consecutive_fails: 0 });
+        cleared++; opCount++;
+        // Firestore batch ліміт 500 операцій
+        if (opCount >= 450) { await batch.commit(); batch = db.batch(); opCount = 0; }
+      }
+      if (opCount > 0) await batch.commit();
+      return res.json({ ok:true, reset_sources: cleared, deleted_logs: cleared });
+    }
+    var sourceId = body.sourceId;
+    if (!sourceId) return res.status(400).json({ error:'sourceId or all required' });
     await db.collection(COL.sources).doc(sourceId).update({
       scan_history: [], last_error: '', consecutive_fails: 0
     });
-    res.json({ ok:true, sourceId:sourceId });
+    res.json({ ok:true, sourceId:sourceId, reset_sources: 1, deleted_logs: 1 });
   } catch(e) {
     console.error('clearScanLogs error:', e);
     res.status(500).json({ error:e.message });
@@ -763,7 +786,7 @@ exports.healthCheck = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin','*');
   try {
     var snap = await db.collection(COL.sources).where('source_status','==','active').get();
-    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6.1' });
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6.2' });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 

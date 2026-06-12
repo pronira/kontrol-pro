@@ -1576,7 +1576,8 @@ async function gfClearAllScanLogs() {
   gfToast('⏳ Очищаємо логи…', '#64748b');
 
   try {
-    var resp = await fetch(GFC.fnBase + 'clearScanLogs', {
+    var CLEAR_URL = GFC && GFC.fnBase ? (GFC.fnBase + 'clearScanLogs') : 'https://us-central1-kontrol-pro.cloudfunctions.net/clearScanLogs';
+    var resp = await fetch(CLEAR_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ all: true })
