@@ -1,5 +1,5 @@
 /**
- * GrantFlow ScanEngine v6.3 — пакетне сканування + краща дедуплікація + scanDebug діагностика
+ * GrantFlow ScanEngine v6.5 — рухоме вікно 30 днів (відхилені+непереглянуті) + гарантія від дублікатів (кеш недоторканий)
  * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
  * Виправлення зі звіту 08.06:
  *  - Google News 503: ротація User-Agent + retry з паузою
@@ -420,11 +420,14 @@ async function parseTelegram(url, limit, windowDays) {
   var html = await resp.text();
   var $ = cheerio.load(html);
   var items = [];
+  var totalMessages = 0;     // скільки всього постів на сторінці
+  var droppedByDate = 0;     // скільки відсіяно за датою
   $('.tgme_widget_message_wrap').each(function() {
     if (items.length >= limit) return false;
     var msg = $(this);
+    totalMessages++;
     var dateStr = msg.find('.tgme_widget_message_date time').attr('datetime') || '';
-    if (!isWithinWindow(dateStr, windowDays)) return;
+    if (dateStr && !isWithinWindow(dateStr, windowDays)) { droppedByDate++; return; }
     var text = msg.find('.tgme_widget_message_text').text().trim();
     if (!text || text.length < 30) return;
     var lower = text.toLowerCase();
@@ -447,6 +450,9 @@ async function parseTelegram(url, limit, windowDays) {
       items.push({ title:text.slice(0,200), description:text, url:links[0]||'', date:dateStr });
     }
   });
+  // Прикріплюємо діагностику до масиву (для scanDebug)
+  items._tg_total_messages = totalMessages;
+  items._tg_dropped_by_date = droppedByDate;
   return items;
 }
 
@@ -602,6 +608,17 @@ async function scanSingle(sourceId, src, maxNew) {
   hist.unshift(histEntry);
   if (hist.length > 30) hist = hist.slice(0, 30);
   await db.collection(COL.sources).doc(sourceId).update({ scan_history: hist });
+
+  // Lifetime лічильник — росте при кожному новому гранті, ніколи не зменшується.
+  // Це "всього оброблено за весь період" — зберігається навіть після видалення detected.
+  if (created > 0) {
+    try {
+      await db.collection('gf_settings').doc('lifetime').set({
+        total_seen: admin.firestore.FieldValue.increment(created),
+        last_updated: now
+      }, { merge: true });
+    } catch(_) {}
+  }
 
   return { sourceId:sourceId, checked:raw.length, passed:passed, created:created, dupes:dupes, detailed:detailed, isMulti:isMulti, skippedLimit:skippedLimit };
 }
@@ -803,7 +820,7 @@ exports.healthCheck = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin','*');
   try {
     var snap = await db.collection(COL.sources).where('source_status','==','active').get();
-    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6.3' });
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6.5' });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 
@@ -833,7 +850,15 @@ exports.scanDebug = functions
         if (parser==='rss'||parser==='google_news_rss') raw = await parseRSS(url, 40, windowDays);
         else if (parser==='telegram') raw = await parseTelegram(url, 40, windowDays);
         else raw = await parsePageLinks(url, 40, src, windowDays);
-        dbg.steps['1_raw_parse'] = { count: raw.length, samples: raw.slice(0,10).map(function(x){ return { title:(x.title||'').slice(0,80), url:(x.url||'').slice(0,80), has_date:!!x.date }; }) };
+        var step1 = { count: raw.length, samples: raw.slice(0,10).map(function(x){ return { title:(x.title||'').slice(0,80), url:(x.url||'').slice(0,80), has_date:!!x.date }; }) };
+        // Telegram-специфічна діагностика
+        if (parser==='telegram') {
+          step1.tg_total_messages = raw._tg_total_messages || 0;
+          step1.tg_dropped_by_date = raw._tg_dropped_by_date || 0;
+          if ((raw._tg_total_messages || 0) === 0) step1.tg_hint = 'Канал порожній або приватний (web-preview недоступний). Перевір назву каналу або заміни.';
+          else if (raw.length === 0 && (raw._tg_dropped_by_date||0) > 0) step1.tg_hint = 'Всі пости старші за вікно (' + windowDays + ' днів). Збільш вікно або канал постить рідко.';
+        }
+        dbg.steps['1_raw_parse'] = step1;
       } catch(e) {
         dbg.steps['1_raw_parse'] = { error: e.message, code: e.code || '' };
         return res.json(dbg);
@@ -922,16 +947,121 @@ exports.stats = functions
       }
       // Активні джерела
       var srcSnap = await db.collection(COL.sources).where('source_status','==','active').get();
+      // Lifetime статистика (всього оброблено за весь період)
+      var lifeSnap = await db.collection('gf_settings').doc('lifetime').get();
+      var lifetime = lifeSnap.exists ? lifeSnap.data() : { total_seen: 0 };
       res.json({
         ok: true,
         detected_total: total,
         by_status: byStatus,
         scan_index_size: idxTotal,
         active_sources: srcSnap.size,
+        lifetime_total_seen: lifetime.total_seen || 0,
+        lifetime_updated: lifetime.last_updated || '',
         time: new Date().toISOString()
       });
     } catch(e) {
       console.error('stats error:', e);
+      res.status(500).json({ error:e.message });
+    }
+  });
+
+// 6d. HTTP: Видалення відхилених "Не підходить" з detected.
+// ВАЖЛИВО: scan_index (кеш) НЕ чіпається — тому відхилені НЕ вилізуть знову.
+// Lifetime статистика зберігається. Інтерфейс звільняється.
+// Виклик: .../cleanupRejected              — видалити ВСІ "Не підходить"
+//         .../cleanupRejected?days=30       — видалити "Не підходить" старші 30 днів
+exports.cleanupRejected = functions
+  .runWith({ timeoutSeconds: 540, memory: '1GB' })
+  .https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin','*');
+    res.set('Access-Control-Allow-Methods','POST,GET,OPTIONS');
+    res.set('Access-Control-Allow-Headers','Content-Type');
+    if (req.method==='OPTIONS') return res.status(204).send('');
+    try {
+      var days = parseInt((req.query && req.query.days) || (req.body && req.body.days) || 0);
+      var cutoff = null;
+      if (days > 0) {
+        var d = new Date();
+        d.setDate(d.getDate() - days);
+        cutoff = d.toISOString();
+      }
+
+      // Спочатку зафіксуємо lifetime (щоб статистика не загубилась)
+      // Рахуємо скільки відхилених видаляємо і додаємо до lifetime.total_rejected
+      var rejectedDeleted = 0;
+      while (true) {
+        var q = db.collection(COL.detected).where('status','==','Не підходить').limit(450);
+        var rsnap = await q.get();
+        if (rsnap.empty) break;
+        var batch = db.batch();
+        var inBatch = 0;
+        rsnap.docs.forEach(function(doc) {
+          // Якщо вказано days — видаляємо лише старі
+          if (cutoff) {
+            var foundAt = doc.data().found_at || '';
+            if (foundAt && foundAt > cutoff) return; // свіжий, не чіпаємо
+          }
+          batch.delete(doc.ref);
+          inBatch++;
+        });
+        if (inBatch > 0) { await batch.commit(); rejectedDeleted += inBatch; }
+        if (rsnap.size < 450) break;
+        // Якщо з фільтром days нічого не видалили в цьому батчі — виходимо щоб не зациклитись
+        if (cutoff && inBatch === 0) break;
+      }
+
+      // Записуємо в lifetime скільки всього відхилено (накопичувально)
+      try {
+        await db.collection('gf_settings').doc('lifetime').set({
+          total_rejected_alltime: admin.firestore.FieldValue.increment(rejectedDeleted),
+          last_cleanup: new Date().toISOString()
+        }, { merge: true });
+      } catch(_) {}
+
+      res.json({
+        ok: true,
+        rejected_deleted: rejectedDeleted,
+        scan_index_touched: false,
+        note: 'Видалено відхилені з detected. Кеш дедуплікації НЕ чіпався — ці гранти НЕ вилізуть знову. Статистика збережена.',
+        time: new Date().toISOString()
+      });
+    } catch(e) {
+      console.error('cleanupRejected error:', e);
+      res.status(500).json({ error:e.message });
+    }
+  });
+
+// 6e. HTTP: Скидання кешу дедуплікації (КРАЙНІЙ ВИПАДОК).
+// Чистить scan_index → сканер покаже ВСІ поточні гранти заново.
+// УВАГА: після цього раніше відхилені гранти вилізуть знову!
+// Виклик: .../resetIndex
+exports.resetIndex = functions
+  .runWith({ timeoutSeconds: 540, memory: '1GB' })
+  .https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin','*');
+    res.set('Access-Control-Allow-Methods','POST,GET,OPTIONS');
+    res.set('Access-Control-Allow-Headers','Content-Type');
+    if (req.method==='OPTIONS') return res.status(204).send('');
+    try {
+      var idxDeleted = 0;
+      while (true) {
+        var snap = await db.collection(COL.scanIdx).limit(450).get();
+        if (snap.empty) break;
+        var batch = db.batch();
+        snap.docs.forEach(function(d){ batch.delete(d.ref); });
+        await batch.commit();
+        idxDeleted += snap.size;
+        if (snap.size < 450) break;
+      }
+      res.json({
+        ok: true,
+        scan_index_cleared: idxDeleted,
+        warning: 'Кеш очищено. Раніше відхилені гранти можуть вилізти знову при наступному скануванні.',
+        time: new Date().toISOString()
+      });
+    } catch(e) {
+      console.error('resetIndex error:', e);
       res.status(500).json({ error:e.message });
     }
   });
@@ -982,4 +1112,62 @@ exports.dailyDetectedCount = functions.pubsub
       }, { merge: true });
       console.log('Daily detected total: ' + total);
     } catch(e) { console.error('dailyDetectedCount error:', e.message); }
+  });
+
+// 10. Scheduled: автоочистка старих "Не підходить" о 23:40
+// 10. Scheduled: автоочистка о 23:40 — тримає РУХОМЕ ВІКНО 30 ДНІВ.
+// Видаляє з detected записи старші 30 днів зі статусами "Не підходить" і
+// "Виявлено" (непереглянуті). Цінні статуси (які ти сам поставив —
+// Збережено/Цікаво/Подано тощо) НЕ видаляються незалежно від віку.
+// scan_index (кеш) НЕ чіпається → видалені гранти НЕ вилізуть знову.
+// Lifetime статистика зберігається.
+exports.dailyCleanupRejected = functions
+  .runWith({ timeoutSeconds: 540, memory: '512MB' })
+  .pubsub
+  .schedule('40 23 * * *')
+  .timeZone('Europe/Kyiv')
+  .onRun(async () => {
+    try {
+      var d = new Date();
+      d.setDate(d.getDate() - 30); // старші 30 днів
+      var cutoff = d.toISOString();
+      // Статуси що підлягають автовидаленню (сміття + непереглянуті).
+      // Усі ІНШІ статуси = цінні, зберігаються назавжди.
+      var CLEANUP_STATUSES = ['Не підходить', 'Виявлено'];
+      var totalDeleted = 0;
+
+      for (var s = 0; s < CLEANUP_STATUSES.length; s++) {
+        var status = CLEANUP_STATUSES[s];
+        var safety = 0;
+        while (safety < 50) {
+          safety++;
+          var rsnap = await db.collection(COL.detected)
+            .where('status','==',status).limit(450).get();
+          if (rsnap.empty) break;
+          var batch = db.batch();
+          var inBatch = 0;
+          rsnap.docs.forEach(function(doc) {
+            var foundAt = doc.data().found_at || '';
+            // Видаляємо ТІЛЬКИ старші 30 днів. Свіжі — лишаємо.
+            // (записи без дати теж лишаємо — безпечніше)
+            if (!foundAt || foundAt > cutoff) return;
+            // ВАЖЛИВО: видаляємо лише з detected. scan_index НЕ чіпаємо —
+            // його відбиток лишається, тому грант не додасться знову.
+            batch.delete(doc.ref);
+            inBatch++;
+          });
+          if (inBatch > 0) { await batch.commit(); totalDeleted += inBatch; }
+          // Якщо у цьому батчі не було старих — далі їх теж не буде, виходимо
+          if (rsnap.size < 450 || inBatch === 0) break;
+        }
+      }
+
+      if (totalDeleted > 0) {
+        await db.collection('gf_settings').doc('lifetime').set({
+          total_cleaned_alltime: admin.firestore.FieldValue.increment(totalDeleted),
+          last_auto_cleanup: new Date().toISOString()
+        }, { merge: true });
+      }
+      console.log('Auto-cleanup (вікно 30 днів): видалено = ' + totalDeleted + ' (кеш недоторканий)');
+    } catch(e) { console.error('dailyCleanupRejected error:', e.message); }
   });
