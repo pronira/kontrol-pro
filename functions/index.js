@@ -1,5 +1,5 @@
 /**
- * GrantFlow ScanEngine v6.6 — ФІКС старих дат у звіті (запис у gf_scan_logs) + рухоме вікно 30 днів + гарантія від дублікатів
+ * GrantFlow ScanEngine v6.7 — fixSources (виправлення TG-адрес + нові джерела) + Telegram RSS-fallback + розширений фільтр грантів
  * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
  * Виправлення зі звіту 08.06:
  *  - Google News 503: ротація User-Agent + retry з паузою
@@ -33,11 +33,17 @@ const MAX_FAILS_BEFORE_PAUSE = 7;
 
 // ══════ ФІЛЬТРИ ══════
 const GRANT_WORDS = [
-  'грант','гранти','конкурс','програм','фінансуван','підтримк','можливіст',
-  'заявк','відбір','стипенді','субгрант','мікрогрант',
-  'grant','grants','funding','call','application','opportunity','fellowship',
-  'scholarship','support','program','відновлен','реконструкц','розвиток',
-  'проєкт','проект','ініціатив','допомог','обладнан','deadline','дедлайн'
+  'грант','гранти','гранто','конкурс','програм','фінансуван','підтримк','можливіст',
+  'заявк','відбір','стипенді','субгрант','мікрогрант','оголош','прийом заяв',
+  'grant','grants','funding','fund','call','calls','application','apply','opportunity','fellowship',
+  'scholarship','support','program','programme','відновлен','реконструкц','розвиток',
+  'проєкт','проект','ініціатив','допомог','обладнан','deadline','дедлайн',
+  'конкурсн','тендер','премі','нагород','award','prize','contest','competition',
+  'кошти','бюджет','донор','донат','краудфандинг','ваучер','компенсаці',
+  'безповоротн','цільов','підприєм','бізнес-план','startup','стартап','акселерат',
+  'інкубат','боотcamp','bootcamp','хакатон','hackathon','pitch','питч',
+  'стажуван','internship','навчальн','тренінг','training','воркшоп','workshop',
+  'мобільніст','резиденці','residency','exchange','обмін','візит'
 ];
 const SPAM = [
   'вакансія','вакансії','job','jobs','career','hiring','vacancy',
@@ -409,47 +415,78 @@ async function parseRSS(url, limit, windowDays) {
     });
 }
 
-// ══════ ПАРСЕР TELEGRAM (з нормалізацією URL + windowDays) ══════
+// ══════ ПАРСЕР TELEGRAM (з нормалізацією URL + windowDays + RSS-fallback) ══════
 async function parseTelegram(url, limit, windowDays) {
   // Нормалізуємо: t.me/Channel → t.me/s/Channel (web preview)
   var tUrl = url;
   if (tUrl.indexOf('t.me/') >= 0 && tUrl.indexOf('t.me/s/') < 0) {
     tUrl = tUrl.replace('t.me/', 't.me/s/');
   }
-  var resp = await safeFetch(tUrl);
-  var html = await resp.text();
-  var $ = cheerio.load(html);
   var items = [];
   var totalMessages = 0;     // скільки всього постів на сторінці
   var droppedByDate = 0;     // скільки відсіяно за датою
-  $('.tgme_widget_message_wrap').each(function() {
-    if (items.length >= limit) return false;
-    var msg = $(this);
-    totalMessages++;
-    var dateStr = msg.find('.tgme_widget_message_date time').attr('datetime') || '';
-    if (dateStr && !isWithinWindow(dateStr, windowDays)) { droppedByDate++; return; }
-    var text = msg.find('.tgme_widget_message_text').text().trim();
-    if (!text || text.length < 30) return;
-    var lower = text.toLowerCase();
-    if (SPAM.some(function(w){ return lower.indexOf(w)>=0; })) return;
-    if (!GRANT_WORDS.some(function(w){ return lower.indexOf(w)>=0; })) return;
-    var links = [];
-    msg.find('.tgme_widget_message_text a[href]').each(function() {
-      var h = $(this).attr('href') || '';
-      if (h && !h.startsWith('tg://') && h.indexOf('t.me/') < 0) links.push(h);
-    });
-    var parts = splitTelegramPost(text);
-    if (parts.length > 1) {
-      parts.forEach(function(sp, i){
-        var l2 = sp.toLowerCase();
-        if (!GRANT_WORDS.some(function(w){ return l2.indexOf(w)>=0; })) return;
-        if (SPAM.some(function(w){ return l2.indexOf(w)>=0; })) return;
-        if (items.length < limit) items.push({ title:sp.slice(0,200), description:sp, url:links[i]||links[0]||'', date:dateStr });
+  try {
+    var resp = await safeFetch(tUrl);
+    var html = await resp.text();
+    var $ = cheerio.load(html);
+    $('.tgme_widget_message_wrap').each(function() {
+      if (items.length >= limit) return false;
+      var msg = $(this);
+      totalMessages++;
+      var dateStr = msg.find('.tgme_widget_message_date time').attr('datetime') || '';
+      if (dateStr && !isWithinWindow(dateStr, windowDays)) { droppedByDate++; return; }
+      var text = msg.find('.tgme_widget_message_text').text().trim();
+      if (!text || text.length < 30) return;
+      var lower = text.toLowerCase();
+      if (SPAM.some(function(w){ return lower.indexOf(w)>=0; })) return;
+      if (!GRANT_WORDS.some(function(w){ return lower.indexOf(w)>=0; })) return;
+      var links = [];
+      msg.find('.tgme_widget_message_text a[href]').each(function() {
+        var h = $(this).attr('href') || '';
+        if (h && !h.startsWith('tg://') && h.indexOf('t.me/') < 0) links.push(h);
       });
-    } else {
-      items.push({ title:text.slice(0,200), description:text, url:links[0]||'', date:dateStr });
+      var parts = splitTelegramPost(text);
+      if (parts.length > 1) {
+        parts.forEach(function(sp, i){
+          var l2 = sp.toLowerCase();
+          if (!GRANT_WORDS.some(function(w){ return l2.indexOf(w)>=0; })) return;
+          if (SPAM.some(function(w){ return l2.indexOf(w)>=0; })) return;
+          if (items.length < limit) items.push({ title:sp.slice(0,200), description:sp, url:links[i]||links[0]||'', date:dateStr });
+        });
+      } else {
+        items.push({ title:text.slice(0,200), description:text, url:links[0]||'', date:dateStr });
+      }
+    });
+  } catch(e) { /* web-preview недоступний — спробуємо RSS-міст нижче */ }
+
+  // FALLBACK: якщо web-preview порожній (канал вимкнув /s/), пробуємо RSS-мости.
+  // Це повертає канали типу USAID/UNDP які не мають публічного t.me/s/.
+  if (totalMessages === 0 && items.length === 0) {
+    var channel = '';
+    var m = url.match(/t\.me\/(?:s\/)?(@?[A-Za-z0-9_]+)/);
+    if (m) channel = m[1].replace('@','');
+    if (channel) {
+      var bridges = [
+        'https://rsshub.app/telegram/channel/' + channel,
+        'https://tg.i-c-a.su/rss/' + channel
+      ];
+      for (var bi = 0; bi < bridges.length && items.length === 0; bi++) {
+        try {
+          var rssItems = await parseRSS(bridges[bi], limit, windowDays);
+          if (rssItems && rssItems.length > 0) {
+            rssItems.forEach(function(it) {
+              var lower = (it.title + ' ' + (it.description||'')).toLowerCase();
+              if (SPAM.some(function(w){ return lower.indexOf(w)>=0; })) return;
+              if (!GRANT_WORDS.some(function(w){ return lower.indexOf(w)>=0; })) return;
+              if (items.length < limit) items.push(it);
+            });
+            if (items.length > 0) { items._tg_via_bridge = bridges[bi]; totalMessages = rssItems.length; }
+          }
+        } catch(_) { /* міст недоступний — пробуємо наступний */ }
+      }
     }
-  });
+  }
+
   // Прикріплюємо діагностику до масиву (для scanDebug)
   items._tg_total_messages = totalMessages;
   items._tg_dropped_by_date = droppedByDate;
@@ -867,9 +904,121 @@ exports.healthCheck = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin','*');
   try {
     var snap = await db.collection(COL.sources).where('source_status','==','active').get();
-    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6.6' });
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6.7' });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
+
+// 6a. HTTP: Виправлення адрес Telegram-каналів + додавання нових джерел.
+// Викликати ОДИН РАЗ після деплою: .../fixSources
+// - Виправляє неправильні URL (ГУРТ, УКФ, Простір — перевірено через веб)
+// - Додає нові робочі грантові джерела
+// - Ставить на паузу мертві джерела (DNS-помилки)
+exports.fixSources = functions
+  .runWith({ timeoutSeconds: 120, memory: '256MB' })
+  .https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin','*');
+    res.set('Access-Control-Allow-Methods','POST,GET,OPTIONS');
+    res.set('Access-Control-Allow-Headers','Content-Type');
+    if (req.method==='OPTIONS') return res.status(204).send('');
+    try {
+      var result = { fixed_urls: [], added: [], paused_dead: [], reactivated: [] };
+
+      // 1. ВИПРАВЛЕННЯ неправильних Telegram-адрес (перевірено через веб 16.06.2026)
+      var urlFixes = {
+        'tg_gurtrc':    'https://t.me/s/gurtrc',      // було gaborets (без preview)
+        'tg_ukf_ua':    'https://t.me/s/UCF_ua',      // було ukf_ua (без preview)
+        'tg_prostirua': 'https://t.me/s/prostirua'    // було prostir_ua (чужий військовий канал!)
+      };
+      for (var fid in urlFixes) {
+        try {
+          var fdoc = await db.collection(COL.sources).doc(fid).get();
+          if (fdoc.exists) {
+            await db.collection(COL.sources).doc(fid).update({
+              source_url: urlFixes[fid],
+              source_status: 'active',
+              consecutive_fails: 0,
+              last_error: '',
+              pause_reason: ''
+            });
+            result.fixed_urls.push(fid + ' → ' + urlFixes[fid]);
+          }
+        } catch(e) { /* пропуск */ }
+      }
+
+      // 2. ПАУЗА мертвих джерел (домени не існують — DNS ENOTFOUND, перевірено)
+      var deadIds = ['grant_av','mercy_corps_ua','getgrant_page','irex_ukraine',
+                     'src_1775119984371','britishcouncil_ua','british_council_ua',
+                     'devex_ukraine','undp_ukraine','diia_business','gurt_rss',
+                     'reliefweb_funding','reliefweb_ukraine','hromadskyi_prostir'];
+      for (var di = 0; di < deadIds.length; di++) {
+        try {
+          var ddoc = await db.collection(COL.sources).doc(deadIds[di]).get();
+          if (ddoc.exists && ddoc.data().source_status === 'active') {
+            await db.collection(COL.sources).doc(deadIds[di]).update({
+              source_status: 'paused',
+              pause_reason: 'Авто-пауза: джерело недоступне (мертвий домен/404)'
+            });
+            result.paused_dead.push(deadIds[di]);
+          }
+        } catch(e) { /* пропуск */ }
+      }
+
+      // 3. РЕАКТИВАЦІЯ Google News (503 виправлено в v6.1 — detail-fetch вимкнено)
+      var reactivateIds = ['google_news_grants_ua','google_news_grants_hromady',
+                           'google_news_vidnovlennia','google_news_veteran_grants',
+                           'google_news_konkursy','google_news_business_grants'];
+      for (var ri = 0; ri < reactivateIds.length; ri++) {
+        try {
+          var rdoc = await db.collection(COL.sources).doc(reactivateIds[ri]).get();
+          if (rdoc.exists && rdoc.data().source_status === 'paused') {
+            await db.collection(COL.sources).doc(reactivateIds[ri]).update({
+              source_status: 'active', consecutive_fails: 0, last_error: '', pause_reason: ''
+            });
+            result.reactivated.push(reactivateIds[ri]);
+          }
+        } catch(e) { /* пропуск */ }
+      }
+
+      // 4. ДОДАВАННЯ нових джерел (тільки перевірені робочі).
+      // page-версії ГУРТ і Простір — надійніші за TG (мають дату публікації).
+      var newSources = [
+        { id:'prostir_grants_page', source_name:'Простір — гранти (сторінка)', source_url:'https://www.prostir.ua/category/grants/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:14, item_limit:20, scan_interval_min:120 },
+        { id:'gurt_grants_page', source_name:'ГУРТ — гранти (сторінка)', source_url:'https://gurt.org.ua/news/grants/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:14, item_limit:20, scan_interval_min:120 }
+      ];
+      for (var ni = 0; ni < newSources.length; ni++) {
+        var ns = newSources[ni];
+        try {
+          var exist = await db.collection(COL.sources).doc(ns.id).get();
+          if (!exist.exists) {
+            ns.found_count = 0; ns.created_at = new Date().toISOString();
+            ns.scan_history = []; ns.consecutive_fails = 0; ns.last_error = '';
+            await db.collection(COL.sources).doc(ns.id).set(ns);
+            result.added.push(ns.id + ' (' + ns.source_name + ')');
+          }
+        } catch(e) { /* пропуск */ }
+      }
+
+      res.json({
+        ok: true,
+        summary: {
+          urls_fixed: result.fixed_urls.length,
+          sources_added: result.added.length,
+          dead_paused: result.paused_dead.length,
+          google_news_reactivated: result.reactivated.length
+        },
+        details: result,
+        note: 'Готово. Виправлено адреси, додано нові джерела, реактивовано Google News, призупинено мертві. Дай сканеру 10-15 хв.',
+        time: new Date().toISOString()
+      });
+    } catch(e) {
+      console.error('fixSources error:', e);
+      res.status(500).json({ error:e.message });
+    }
+  });
 
 // 6b. HTTP: Розгорнута діагностика одного джерела (БЕЗ запису в базу)
 // Показує сирі дані ДО і ПІСЛЯ кожного етапу — щоб бачити ЧОМУ мало результатів.
@@ -902,8 +1051,9 @@ exports.scanDebug = functions
         if (parser==='telegram') {
           step1.tg_total_messages = raw._tg_total_messages || 0;
           step1.tg_dropped_by_date = raw._tg_dropped_by_date || 0;
-          if ((raw._tg_total_messages || 0) === 0) step1.tg_hint = 'Канал порожній або приватний (web-preview недоступний). Перевір назву каналу або заміни.';
-          else if (raw.length === 0 && (raw._tg_dropped_by_date||0) > 0) step1.tg_hint = 'Всі пости старші за вікно (' + windowDays + ' днів). Збільш вікно або канал постить рідко.';
+          if (raw._tg_via_bridge) step1.tg_via_bridge = raw._tg_via_bridge;
+          if ((raw._tg_total_messages || 0) === 0) step1.tg_hint = 'Канал порожній або приватний (web-preview недоступний). Спробувано RSS-міст. Перевір назву каналу.';
+          else if (raw.length === 0 && (raw._tg_dropped_by_date||0) > 0) step1.tg_hint = 'Всі пости старші за вікно (' + windowDays + ' днів).';
         }
         dbg.steps['1_raw_parse'] = step1;
       } catch(e) {
