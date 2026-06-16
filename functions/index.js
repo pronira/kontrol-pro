@@ -1,5 +1,5 @@
 /**
- * GrantFlow ScanEngine v6.5 — рухоме вікно 30 днів (відхилені+непереглянуті) + гарантія від дублікатів (кеш недоторканий)
+ * GrantFlow ScanEngine v6.6 — ФІКС старих дат у звіті (запис у gf_scan_logs) + рухоме вікно 30 днів + гарантія від дублікатів
  * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
  * Виправлення зі звіту 08.06:
  *  - Google News 503: ротація User-Agent + retry з паузою
@@ -587,20 +587,48 @@ async function scanSingle(sourceId, src, maxNew) {
   var cnt = parseInt(src.found_count)||0;
   var histEntry = { at:now, status:scanStatus, raw:raw.length, passed:passed, new:created, dupes:dupes, non_ua:nonUaDropped, multi:isMulti, skipped_limit:skippedLimit, error:'' };
 
+  // Обʼєкт логу у форматі який очікує фронтенд (gf-sources.js → gf_scan_logs / last_scan_log)
+  var scanLog = {
+    source_id: sourceId,
+    source_name: src.source_name || '',
+    scanned_at: now,
+    scanned_at_iso: now,
+    status: scanStatus,
+    raw_found: raw.length,
+    passed: passed,
+    created: created,
+    dupes: dupes,
+    non_ua_dropped: nonUaDropped,
+    age_dropped: 0,
+    is_multi: isMulti,
+    http_status: '',
+    skipped_limit: skippedLimit,
+    diag_steps: [],
+    diag_warnings: []
+  };
+
   var upd = {
     last_checked_at: now,
     last_success_at: created > 0 ? now : (src.last_success_at||''),
     found_count: cnt + created,
     last_error: '',
+    last_error_code: '',
     consecutive_fails: 0,
     last_scan_status: scanStatus,
     last_scan_raw: raw.length,
     last_scan_passed: passed,
     last_scan_new: created,
     last_scan_dupes: dupes,
-    last_scan_at: now
+    last_scan_at: now,
+    last_scan_log: scanLog
   };
   await db.collection(COL.sources).doc(sourceId).update(upd);
+
+  // ВАЖЛИВО: пишемо в окрему колекцію gf_scan_logs — саме звідти фронтенд
+  // читає звіт. Без цього звіт показує старі дати (баг "дати застрягли").
+  try {
+    await db.collection('gf_scan_logs').doc(sourceId).set(scanLog);
+  } catch(_) {}
 
   var snap = await db.collection(COL.sources).doc(sourceId).get();
   var dd = snap.data();
@@ -638,12 +666,29 @@ async function handleScanError(docId, src, e) {
   else if (/HTTP 503/.test(e.message)) errLabel = 'Сервіс недоступний (503)';
 
   var histEntry = { at:now, status:'error', raw:0, passed:0, new:0, dupes:0, error:(errLabel||'')+' '+e.message.slice(0,150) };
+  var errLog = {
+    source_id: docId,
+    source_name: src.source_name || '',
+    scanned_at: now,
+    scanned_at_iso: now,
+    status: 'error',
+    raw_found: 0, passed: 0, created: 0, dupes: 0,
+    non_ua_dropped: 0, age_dropped: 0,
+    http_status: '',
+    error: (errLabel ? errLabel + ': ' : '') + e.message.slice(0, 200),
+    error_code: e.code || '',
+    error_label: errLabel || '',
+    diag_steps: [], diag_warnings: []
+  };
   var upd = {
     last_checked_at: now,
     last_error: (errLabel ? errLabel + ': ' : '') + e.message.slice(0, 400),
+    last_error_code: e.code || '',
+    last_error_label: errLabel || '',
     last_scan_status: 'error',
     last_scan_raw: 0, last_scan_new: 0, last_scan_dupes: 0,
-    consecutive_fails: failCount
+    consecutive_fails: failCount,
+    last_scan_log: errLog
   };
   // DNS-помилки (домен не існує) — пауза одразу після 3 спроб
   var dnsErr = (e.code === 'ENOTFOUND' || e.code === 'EAI_AGAIN');
@@ -653,6 +698,8 @@ async function handleScanError(docId, src, e) {
     upd.pause_reason = 'Авто-пауза: ' + failCount + ' помилок поспіль. ' + (errLabel || e.message.slice(0,80));
   }
   await db.collection(COL.sources).doc(docId).update(upd);
+  // Пишемо помилку в gf_scan_logs (звіт читає звідти)
+  try { await db.collection('gf_scan_logs').doc(docId).set(errLog); } catch(_) {}
   var snap2 = await db.collection(COL.sources).doc(docId).get();
   var d2 = snap2.data();
   var hist = Array.isArray(d2.scan_history) ? d2.scan_history : [];
@@ -820,7 +867,7 @@ exports.healthCheck = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin','*');
   try {
     var snap = await db.collection(COL.sources).where('source_status','==','active').get();
-    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6.5' });
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6.6' });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 
