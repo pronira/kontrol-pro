@@ -1,5 +1,5 @@
 /**
- * GrantFlow ScanEngine v6.7 — fixSources (виправлення TG-адрес + нові джерела) + Telegram RSS-fallback + розширений фільтр грантів
+ * GrantFlow ScanEngine v6.8 — стійкий обхід Google News 503 (браузерні заголовки + проксі-fallback)
  * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
  * Виправлення зі звіту 08.06:
  *  - Google News 503: ротація User-Agent + retry з паузою
@@ -382,8 +382,55 @@ function stripHtml(h) {
 }
 
 // ══════ ПАРСЕР RSS (з підтримкою Atom + windowDays) ══════
+// ══════ СТІЙКИЙ FETCH ДЛЯ GOOGLE NEWS (обхід 503 на хмарних IP) ══════
+async function fetchGoogleNews(url) {
+  // Браузерні заголовки повного набору — Google менш охоче блокує
+  var headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'uk-UA,uk;q=0.9,en;q=0.8',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache'
+  };
+  var lastErr = null;
+  // 3 спроби з прогресивною затримкою (Google іноді віддає з 2-3 разу)
+  for (var attempt = 0; attempt < 3; attempt++) {
+    try {
+      var resp = await fetch(url, { headers: headers, timeout: FETCH_TIMEOUT, redirect: 'follow' });
+      if (resp.ok) return resp;
+      if (resp.status === 503 || resp.status === 429) {
+        await new Promise(function(r){ setTimeout(r, 2000 * (attempt + 1)); });
+        continue;
+      }
+      throw new Error('HTTP ' + resp.status + ' from ' + url.slice(0, 60));
+    } catch (e) {
+      lastErr = e;
+      await new Promise(function(r){ setTimeout(r, 1500); });
+    }
+  }
+  // ЗАПАСНИЙ ШЛЯХ: проксі-дзеркала що читають Google News замість нас
+  var proxies = [
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+    'https://corsproxy.io/?url=' + encodeURIComponent(url)
+  ];
+  for (var pi = 0; pi < proxies.length; pi++) {
+    try {
+      var pr = await fetch(proxies[pi], { timeout: FETCH_TIMEOUT, redirect: 'follow' });
+      if (pr.ok) return pr;
+    } catch (_) { /* наступний проксі */ }
+  }
+  throw lastErr || new Error('Google News недоступний (503 + проксі не спрацювали)');
+}
+
 async function parseRSS(url, limit, windowDays) {
-  var resp = await safeFetch(url);
+  var resp;
+  // Google News часто блокує хмарні IP (503). Спеціальна стійка обробка.
+  if (url.indexOf('news.google.com') >= 0) {
+    resp = await fetchGoogleNews(url);
+  } else {
+    resp = await safeFetch(url);
+  }
   var xml = await resp.text();
   var p = new XMLParser({ ignoreAttributes:false, attributeNamePrefix:'@_' });
   var d = p.parse(xml);
@@ -904,7 +951,7 @@ exports.healthCheck = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin','*');
   try {
     var snap = await db.collection(COL.sources).where('source_status','==','active').get();
-    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6.7' });
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6.8' });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 
