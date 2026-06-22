@@ -1,5 +1,5 @@
 /**
- * GrantFlow ScanEngine v6.8 — стійкий обхід Google News 503 (браузерні заголовки + проксі-fallback)
+ * GrantFlow ScanEngine v6.9 — +9 нових перевірених джерел грантів + виправлення Грант АВ/GetGrant домени
  * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
  * Виправлення зі звіту 08.06:
  *  - Google News 503: ротація User-Agent + retry з паузою
@@ -951,7 +951,7 @@ exports.healthCheck = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin','*');
   try {
     var snap = await db.collection(COL.sources).where('source_status','==','active').get();
-    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6.8' });
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6.9' });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 
@@ -970,11 +970,13 @@ exports.fixSources = functions
     try {
       var result = { fixed_urls: [], added: [], paused_dead: [], reactivated: [] };
 
-      // 1. ВИПРАВЛЕННЯ неправильних Telegram-адрес (перевірено через веб 16.06.2026)
+      // 1. ВИПРАВЛЕННЯ неправильних URL (перевірено через веб 16-22.06.2026)
       var urlFixes = {
         'tg_gurtrc':    'https://t.me/s/gurtrc',      // було gaborets (без preview)
         'tg_ukf_ua':    'https://t.me/s/UCF_ua',      // було ukf_ua (без preview)
-        'tg_prostirua': 'https://t.me/s/prostirua'    // було prostir_ua (чужий військовий канал!)
+        'tg_prostirua': 'https://t.me/s/prostirua',   // було prostir_ua (чужий військовий канал!)
+        'grant_av':     'https://grant-av.com.ua/grants/',  // переїхав з grant.av.ua (мертвий)
+        'getgrant_page':'https://getgrant.ua/'        // старий getgrant.com.ua мертвий
       };
       for (var fid in urlFixes) {
         try {
@@ -993,7 +995,7 @@ exports.fixSources = functions
       }
 
       // 2. ПАУЗА мертвих джерел (домени не існують — DNS ENOTFOUND, перевірено)
-      var deadIds = ['grant_av','mercy_corps_ua','getgrant_page','irex_ukraine',
+      var deadIds = ['mercy_corps_ua','irex_ukraine',
                      'src_1775119984371','britishcouncil_ua','british_council_ua',
                      'devex_ukraine','undp_ukraine','diia_business','gurt_rss',
                      'reliefweb_funding','reliefweb_ukraine','hromadskyi_prostir'];
@@ -1034,7 +1036,29 @@ exports.fixSources = functions
           source_priority:'high', scan_window_days:14, item_limit:20, scan_interval_min:120 },
         { id:'gurt_grants_page', source_name:'ГУРТ — гранти (сторінка)', source_url:'https://gurt.org.ua/news/grants/',
           source_type:'page', parser_mode:'page_links', source_status:'active',
-          source_priority:'high', scan_window_days:14, item_limit:20, scan_interval_min:120 }
+          source_priority:'high', scan_window_days:14, item_limit:20, scan_interval_min:120 },
+        // НОВІ перевірені джерела (живі, гранти 2026 — перевірено через веб 22.06)
+        { id:'chaszmin_grants', source_name:'Час Змін — гранти 2026', source_url:'https://chaszmin.com.ua/granty-2026/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:21, item_limit:30, scan_interval_min:120 },
+        { id:'chaszmin_tut', source_name:'Час Змін — Гранти тут', source_url:'https://chaszmin.com.ua/category/granty-tut/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:21, item_limit:30, scan_interval_min:150 },
+        { id:'grant_av_new', source_name:'Грант АВ (новий домен)', source_url:'https://grant-av.com.ua/grants/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:21, item_limit:30, scan_interval_min:120 },
+        { id:'getgrant_go', source_name:'GetGrant — гранти для ГО', source_url:'https://getgrant.ua/granty-dlia-hromadskykh-orhanizatsii-ukraina-2026/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'medium', scan_window_days:30, item_limit:25, scan_interval_min:180 },
+        { id:'decentralization', source_name:'Децентралізація — можливості', source_url:'https://decentralization.ua/news',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'medium', scan_window_days:21, item_limit:20, scan_interval_min:180 },
+        { id:'irf_contests_new', source_name:'МФ Відродження — конкурси', source_url:'https://www.irf.ua/grants/contests/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:30, item_limit:25, scan_interval_min:150 },
+        { id:'ulead_news', source_name:'U-LEAD — новини/гранти', source_url:'https://u-lead.org.ua/news',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'medium', scan_window_days:21, item_limit:20, scan_interval_min:180 }
       ];
       for (var ni = 0; ni < newSources.length; ni++) {
         var ns = newSources[ni];
