@@ -1,5 +1,5 @@
 /**
- * GrantFlow ScanEngine v6.9 — +9 нових перевірених джерел грантів + виправлення Грант АВ/GetGrant домени
+ * GrantFlow ScanEngine v7.0 — детальна траса кожного сканування (diag_steps з прикладами + авто-попередження) для розгорнутого звіту
  * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
  * Виправлення зі звіту 08.06:
  *  - Google News 503: ротація User-Agent + retry з паузою
@@ -582,28 +582,55 @@ async function scanSingle(sourceId, src, maxNew) {
   var windowDays = parseInt(src.scan_window_days) || 7;
   var now = new Date().toISOString();
   var raw = [];
+  // ДЕТАЛЬНА ТРАСА — кожен крок сканування з прикладами (для розгорнутого звіту)
+  var trace = [];
+  function step(name, data) { trace.push({ t: new Date().toISOString().slice(11,19), step: name, data: data || {} }); }
+  step('start', { url: url.slice(0,90), parser: parser, window_days: windowDays, max_new: maxNew });
 
+  var t0 = Date.now();
   if (parser==='rss'||parser==='google_news_rss') raw = await parseRSS(url, 40, windowDays);
   else if (parser==='telegram') raw = await parseTelegram(url, 40, windowDays);
   else raw = await parsePageLinks(url, 40, src, windowDays);
+  var fetchMs = Date.now() - t0;
+
+  // Крок 1: сирий результат парсингу з прикладами заголовків
+  var rawStep = {
+    count: raw.length, fetch_ms: fetchMs,
+    samples: raw.slice(0,8).map(function(x){ return { title:(x.title||'').slice(0,70), has_url:!!x.url, has_date:!!x.date }; })
+  };
+  if (parser==='telegram') {
+    rawStep.tg_total_messages = raw._tg_total_messages || 0;
+    rawStep.tg_dropped_by_date = raw._tg_dropped_by_date || 0;
+    if (raw._tg_via_bridge) rawStep.tg_via_bridge = raw._tg_via_bridge;
+  }
+  step('raw_parse', rawStep);
 
   // Якщо сторінка дала мало — пробуємо мульти-грант парсинг
   var isMulti = false;
   if ((parser==='page_links') && raw.length < 3) {
     var multi = await extractMultipleGrants(url);
     if (multi && multi.length >= 3) { raw = multi; isMulti = true; }
+    step('multi_grant', { triggered: true, found: multi ? multi.length : 0, used: isMulti });
   }
 
   // Фільтр: грантові + не службові навігаційні
   var nonUaDropped = 0;
   var passed = 0;
+  var navSamples = [], filterSamples = [], passSamples = [];
   var good = raw.filter(function(item) {
-    if (isNavWord(item.title)) { nonUaDropped++; return false; }
-    if (!passesFilter(item.title, item.description)) return false;
-    passed++; return true;
+    if (isNavWord(item.title)) { nonUaDropped++; if(navSamples.length<6) navSamples.push((item.title||'').slice(0,50)); return false; }
+    if (!passesFilter(item.title, item.description)) { if(filterSamples.length<6) filterSamples.push((item.title||'').slice(0,50)); return false; }
+    passed++; if(passSamples.length<8) passSamples.push((item.title||'').slice(0,60)); return true;
+  });
+  step('filter', {
+    raw: raw.length, passed: passed,
+    nav_dropped: nonUaDropped, nav_samples: navSamples,
+    filter_dropped: (raw.length - nonUaDropped - passed), filter_samples: filterSamples,
+    passed_samples: passSamples
   });
 
   var created=0, dupes=0, detailed=0, skippedLimit=0;
+  var newSamples = [], dupeSamples = [];
   for (var gi = 0; gi < good.length; gi++) {
     var item = good[gi];
     var norm = (item.title||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,200);
@@ -612,9 +639,10 @@ async function scanSingle(sourceId, src, maxNew) {
     var isDupe = false;
     if (norm) { var e1 = await db.collection(COL.scanIdx).where('normalized_title','==',norm).limit(1).get(); if(!e1.empty) isDupe = true; }
     if (!isDupe && dUrl) { var e2 = await db.collection(COL.scanIdx).where('canonical_url','==',dUrl).limit(1).get(); if(!e2.empty) isDupe = true; }
-    if (isDupe) { dupes++; continue; }
+    if (isDupe) { dupes++; if(dupeSamples.length<6) dupeSamples.push((item.title||'').slice(0,50)); continue; }
     // Новий грант — але якщо вже досягли ліміту створення, рахуємо окремо
     if (created >= maxNew) { skippedLimit++; continue; }
+    if (newSamples.length<8) newSamples.push((item.title||'').slice(0,60));
 
     var cls = classify(item.title||'', item.description||'');
     var fullText = '';
@@ -668,6 +696,19 @@ async function scanSingle(sourceId, src, maxNew) {
   else if (created > 0) scanStatus = 'ok_new';
   else if (dupes > 0 || good.length > 0) scanStatus = 'ok_dupes';
 
+  // Фінальний крок траси + автоматичні попередження-підказки
+  step('result', { status: scanStatus, created: created, dupes: dupes, skipped_limit: skippedLimit, new_samples: newSamples, dupe_samples: dupeSamples });
+  var warnings = [];
+  if (raw.length === 0) {
+    if (parser === 'telegram') warnings.push('Канал порожній/приватний (web-preview недоступний). Спробувано RSS-міст. Перевір назву каналу.');
+    else if (parser.indexOf('rss') >= 0) warnings.push('RSS не повернув записів. Можливо всі старші за вікно (' + windowDays + ' днів) або фід порожній.');
+    else warnings.push('Сторінка не дала посилань. Можливо змінилась структура або потрібен інший URL.');
+  }
+  if (raw.length > 0 && passed === 0) warnings.push('Усі ' + raw.length + ' результатів відсіяно фільтром. Можливо фільтр занадто строгий, або це не грантовий контент.');
+  if (passed > 0 && created === 0 && dupes === passed) warnings.push('Усі ' + passed + ' пройдених — дублі (вже в базі). Це нормально якщо нових грантів немає.');
+  if (skippedLimit > 0) warnings.push('Пропущено ' + skippedLimit + ' нових через ліміт (' + maxNew + '/скан). Збільш item_limit якщо джерело багате.');
+  if (nonUaDropped > 0) warnings.push('Відсіяно ' + nonUaDropped + ' службових/навігаційних посилань.');
+
   var cnt = parseInt(src.found_count)||0;
   var histEntry = { at:now, status:scanStatus, raw:raw.length, passed:passed, new:created, dupes:dupes, non_ua:nonUaDropped, multi:isMulti, skipped_limit:skippedLimit, error:'' };
 
@@ -687,8 +728,9 @@ async function scanSingle(sourceId, src, maxNew) {
     is_multi: isMulti,
     http_status: '',
     skipped_limit: skippedLimit,
-    diag_steps: [],
-    diag_warnings: []
+    fetch_ms: fetchMs,
+    diag_steps: trace,
+    diag_warnings: warnings
   };
 
   var upd = {
@@ -951,7 +993,7 @@ exports.healthCheck = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin','*');
   try {
     var snap = await db.collection(COL.sources).where('source_status','==','active').get();
-    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v6.9' });
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.0' });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 
