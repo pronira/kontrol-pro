@@ -1,5 +1,5 @@
 /**
- * GrantFlow ScanEngine v7.5 — універсальний проксі-обхід для Telegram (оживляє канали що блокують хмарний IP) + проксі для page 403 + мʼякший TG-фільтр
+ * GrantFlow ScanEngine v7.6 — виправлення мертвих URL на робочі (UNDP/House of Europe/Open Society) + GetGrant-агрегатор + остаточна пауза 404-джерел
  * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
  * Виправлення зі звіту 08.06:
  *  - Google News 503: ротація User-Agent + retry з паузою
@@ -1101,7 +1101,7 @@ exports.healthCheck = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin','*');
   try {
     var snap = await db.collection(COL.sources).where('source_status','==','active').get();
-    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.5' });
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.6' });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 
@@ -1126,7 +1126,12 @@ exports.fixSources = functions
         'tg_ukf_ua':    'https://t.me/s/UCF_ua',      // було ukf_ua (без preview)
         'tg_prostirua': 'https://t.me/s/prostirua',   // було prostir_ua (чужий військовий канал!)
         'grant_av':     'https://grant-av.com.ua/grants/',  // переїхав з grant.av.ua (мертвий)
-        'getgrant_page':'https://getgrant.ua/'        // старий getgrant.com.ua мертвий
+        'getgrant_page':'https://getgrant.ua/',       // старий getgrant.com.ua мертвий
+        // Виправлення мертвих page-URL на РОБОЧІ (перевірено через веб 24.06):
+        'undp_ukraine':   'https://www.undp.org/ukraine/grants-and-opportunities', // було /grants (404)
+        'house_of_europe':'https://houseofeurope.org.ua/en',  // надійніша версія (дедлайни 2026)
+        'opensociety_ua': 'https://www.irf.ua/grants/contests/', // було /grants (404)
+        'mindev_gov':     'https://mindev.gov.ua/news/' // resursy-dlia-hromad дає 403
       };
       for (var fid in urlFixes) {
         try {
@@ -1144,11 +1149,11 @@ exports.fixSources = functions
         } catch(e) { /* пропуск */ }
       }
 
-      // 2. ПАУЗА мертвих джерел (домени не існують — DNS ENOTFOUND, перевірено)
-      var deadIds = ['mercy_corps_ua','irex_ukraine',
-                     'src_1775119984371','britishcouncil_ua','british_council_ua',
-                     'devex_ukraine','undp_ukraine','diia_business','gurt_rss',
-                     'reliefweb_funding','reliefweb_ukraine','hromadskyi_prostir'];
+      // 2. ПАУЗА остаточно мертвих джерел (404/DNS — сторінки видалені назавжди)
+      var deadIds = ['mercy_corps_ua','irex_ukraine','britishcouncil_ua','british_council_ua',
+                     'devex_ukraine','diia_business','gurt_rss',
+                     'reliefweb_funding','reliefweb_ukraine','hromadskyi_prostir',
+                     'src_1775119984371','src_1775040621159','prostir_feed','fundsforngos_ukraine'];
       for (var di = 0; di < deadIds.length; di++) {
         try {
           var ddoc = await db.collection(COL.sources).doc(deadIds[di]).get();
@@ -1218,7 +1223,15 @@ exports.fixSources = functions
           source_priority:'high', scan_window_days:30, item_limit:25, scan_interval_min:150 },
         { id:'uyf_news', source_name:'Молодіжний фонд — можливості', source_url:'https://uyf.gov.ua/news',
           source_type:'page', parser_mode:'page_links', source_status:'active',
-          source_priority:'medium', scan_window_days:30, item_limit:20, scan_interval_min:180 }
+          source_priority:'medium', scan_window_days:30, item_limit:20, scan_interval_min:180 },
+        // GetGrant grants-and-funding — потужний АГРЕГАТОР (збирає House of Europe,
+        // UNDP, ІСАР, Дія, Відродження в одному місці — page, надійно)
+        { id:'getgrant_funding', source_name:'GetGrant — всі гранти (агрегатор)', source_url:'https://getgrant.ua/grants-and-funding/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:30, item_limit:30, scan_interval_min:120 },
+        { id:'houseofeurope_grants', source_name:'House of Europe — гранти', source_url:'https://houseofeurope.org.ua/grant',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:30, item_limit:25, scan_interval_min:150 }
       ];
       for (var ni = 0; ni < newSources.length; ni++) {
         var ns = newSources[ni];
