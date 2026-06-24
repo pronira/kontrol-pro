@@ -68,7 +68,14 @@ const NAV_WORDS = [
   'про нас','послуги','ціни','блог','вакансії','умови використання',
   'угода користувача','реєстрація','логін','довідка','конфіденційність',
   'partner with us','receive funding','about','home','menu','login','sign up',
-  'privacy','terms','contact','news','careers'
+  'privacy','terms','contact','news','careers',
+  // Навігаційні фрази сайтів (точний збіг) — щоб меню не потрапляло у "Виявлено"
+  'що ми робимо','наші проєкти та програми','підтримані нами проєкти',
+  'архів проєктів та програм','наші дослідження','історії успіху',
+  'як податись на грантовий конкурс','наша команда','наші партнери',
+  'звітність','фінансова звітність','наша діяльність','галерея',
+  'про організацію','місія та цінності','архів','усі новини','всі новини',
+  'наші проекти','підтримати','стати партнером','календар подій','документи'
 ];
 
 function passesFilter(title, desc) {
@@ -1105,7 +1112,7 @@ exports.healthCheck = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin','*');
   try {
     var snap = await db.collection(COL.sources).where('source_status','==','active').get();
-    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.7' });
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.8' });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 
