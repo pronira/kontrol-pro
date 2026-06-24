@@ -1,5 +1,5 @@
 /**
- * GrantFlow ScanEngine v7.6 — виправлення мертвих URL на робочі (UNDP/House of Europe/Open Society) + GetGrant-агрегатор + остаточна пауза 404-джерел
+ * GrantFlow ScanEngine v7.7 — КРИТИЧНИЙ ФІКС: регекс /^[\s\W]+$/ хибно різав ВСІ українські заголовки (кирилиця=\W у JS). Тепер гранти проходять
  * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
  * Виправлення зі звіту 08.06:
  *  - Google News 503: ротація User-Agent + retry з паузою
@@ -53,7 +53,11 @@ const SPAM = [
 ];
 const BAD_TITLE = [
   /^\[?email\s*protected\]?/i, /^mailto:/i, /^https?:\/\//i,
-  /^@/, /^\d+$/, /^[\s\W]+$/,
+  /^@/, /^\d+$/,
+  // Блокуємо заголовок ТІЛЬКИ якщо в ньому НЕМАЄ жодної літери (лат/кир/цифри).
+  // ВАЖЛИВО: \W у JS вважає кирилицю "не-словом", тому старий /^[\s\W]+$/
+  // хибно різав ВЕСЬ український текст. Тепер перевіряємо наявність літери.
+  /^[^a-zA-Zа-яА-ЯіїєґІЇЄҐ0-9]+$/,
   /^(головна|контакти|про нас|about|home|menu|#|javascript|undefined|null)$/i,
   /cloudflare/i, /captcha/i, /^404|^not found/i, /access denied/i
 ];
@@ -1101,7 +1105,7 @@ exports.healthCheck = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin','*');
   try {
     var snap = await db.collection(COL.sources).where('source_status','==','active').get();
-    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.6' });
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.7' });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 
