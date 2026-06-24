@@ -1,5 +1,5 @@
 /**
- * GrantFlow ScanEngine v7.1 — причини відсіву кожного заголовка + функція sourceHealth (аналітика джерел + рекомендації)
+ * GrantFlow ScanEngine v7.2 — sourceHealth з HTML/TXT режимом (готова сторінка звіту + кнопки завантажити/копіювати)
  * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
  * Виправлення зі звіту 08.06:
  *  - Google News 503: ротація User-Agent + retry з паузою
@@ -1007,7 +1007,7 @@ exports.healthCheck = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin','*');
   try {
     var snap = await db.collection(COL.sources).where('source_status','==','active').get();
-    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.1' });
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.2' });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 
@@ -1290,6 +1290,109 @@ exports.stats = functions
     }
   });
 
+// Текстовий звіт здоровʼя джерел (для завантаження .txt)
+function renderHealthText(p) {
+  var L = [];
+  var d = new Date(p.generated_at);
+  L.push('═══════════════════════════════════════════════════════');
+  L.push('         ЗВІТ ЗДОРОВ\'Я ДЖЕРЕЛ — GRANTFLOW');
+  L.push('═══════════════════════════════════════════════════════');
+  L.push('Згенеровано: ' + d.toLocaleString('uk-UA'));
+  L.push('');
+  L.push('── ПІДСУМОК ──');
+  L.push('Всього джерел     : ' + p.summary.total_sources);
+  L.push('✅ Продуктивні     : ' + p.summary.productive + ' (дали нові гранти)');
+  L.push('🔁 Тільки дублі    : ' + p.summary.dupes_only);
+  L.push('⬜ Порожні         : ' + p.summary.empty);
+  L.push('🔻 Відсіяно фільтром: ' + p.summary.filtered);
+  L.push('🔴 З помилками      : ' + p.summary.errored);
+  L.push('⏸  На паузі         : ' + p.summary.paused);
+  L.push('');
+  L.push('── РЕКОМЕНДАЦІЇ ──');
+  p.recommendations.forEach(function(r){ L.push('  ' + r); });
+  L.push('');
+  L.push('── ✅ ПРОДУКТИВНІ (нові гранти) ──');
+  p.productive_sources.forEach(function(s){ L.push('  ' + s.name + ' [' + s.type + '] — нових:' + s.new + ' (знайдено:' + s.raw + ')'); });
+  L.push('');
+  L.push('── 🔻 ВІДСІЯНО ФІЛЬТРОМ ──');
+  p.filtered_sources.forEach(function(s){ L.push('  ' + s.name + ' [' + s.type + '] — знайдено:' + s.raw + ', все відсіяно'); });
+  L.push('');
+  L.push('── ⬜ ПОРОЖНІ (0 результатів) ──');
+  p.empty_sources.forEach(function(s){ L.push('  ' + s.name + ' [' + s.type + '] — ' + (s.url||'')); });
+  L.push('');
+  L.push('── 🔴 З ПОМИЛКАМИ ──');
+  p.errored_sources.forEach(function(s){ L.push('  ' + s.name + ' — ' + (s.error||'')); });
+  L.push('');
+  L.push('── ⏸ НА ПАУЗІ ──');
+  p.paused_sources.forEach(function(s){ L.push('  ' + s.name + ' — ' + (s.pause_reason||'')); });
+  L.push('');
+  L.push('── 📊 ТОП-10 ЗА ВЕСЬ ЧАС ──');
+  p.top_all_time.forEach(function(s, i){ L.push('  ' + (i+1) + '. ' + s.name + ' — ' + s.total); });
+  L.push('');
+  L.push('═══════════════════════════════════════════════════════');
+  return L.join('\n');
+}
+
+// HTML-звіт здоровʼя джерел (гарна сторінка + кнопки Завантажити/Копіювати)
+function renderHealthHtml(p) {
+  var txt = renderHealthText(p).replace(/`/g, '\\`').replace(/\$/g, '\\$');
+  function rows(arr, cols) {
+    return arr.map(function(s){
+      return '<tr>' + cols.map(function(c){ return '<td>' + String(s[c.k] != null ? s[c.k] : '').replace(/</g,'&lt;') + '</td>'; }).join('') + '</tr>';
+    }).join('');
+  }
+  var d = new Date(p.generated_at);
+  var sm = p.summary;
+  var recHtml = p.recommendations.map(function(r){ return '<li>' + r.replace(/</g,'&lt;') + '</li>'; }).join('');
+  return '<!DOCTYPE html><html lang="uk"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<title>Здоров\'я джерел — GrantFlow</title><style>' +
+    'body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#0b0f1a;color:#e6edf7;margin:0;padding:20px;}' +
+    '.wrap{max-width:1000px;margin:0 auto;}' +
+    'h1{font-size:22px;margin:0 0 4px;}.sub{color:#8aa0bd;font-size:13px;margin-bottom:16px;}' +
+    '.cards{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;}' +
+    '.card{background:#141b2d;border:1px solid #1f2b45;border-radius:10px;padding:12px 16px;min-width:90px;}' +
+    '.card .n{font-size:24px;font-weight:700;}.card .l{font-size:11px;color:#8aa0bd;margin-top:2px;}' +
+    '.green .n{color:#4ade80;}.red .n{color:#f87171;}.yellow .n{color:#fbbf24;}.gray .n{color:#94a3b8;}' +
+    '.btns{display:flex;gap:10px;margin-bottom:20px;}' +
+    'button{background:#4f6ef7;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:14px;cursor:pointer;}' +
+    'button:hover{background:#3f5ae0;}button.sec{background:#1f2b45;}' +
+    'h2{font-size:16px;margin:20px 0 8px;border-bottom:1px solid #1f2b45;padding-bottom:6px;}' +
+    'table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px;}' +
+    'td{padding:6px 8px;border-bottom:1px solid #161f33;}tr:hover td{background:#121a2b;}' +
+    'ul.rec{background:#141b2d;border:1px solid #1f2b45;border-radius:10px;padding:14px 14px 14px 32px;line-height:1.7;}' +
+    '.tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;}' +
+    '</style></head><body><div class="wrap">' +
+    '<h1>🩺 Здоров\'я джерел — GrantFlow</h1>' +
+    '<div class="sub">Згенеровано: ' + d.toLocaleString('uk-UA') + '</div>' +
+    '<div class="cards">' +
+    '<div class="card"><div class="n">' + sm.total_sources + '</div><div class="l">Всього</div></div>' +
+    '<div class="card green"><div class="n">' + sm.productive + '</div><div class="l">Продуктивні</div></div>' +
+    '<div class="card gray"><div class="n">' + sm.dupes_only + '</div><div class="l">Тільки дублі</div></div>' +
+    '<div class="card gray"><div class="n">' + sm.empty + '</div><div class="l">Порожні</div></div>' +
+    '<div class="card yellow"><div class="n">' + sm.filtered + '</div><div class="l">Фільтр</div></div>' +
+    '<div class="card red"><div class="n">' + sm.errored + '</div><div class="l">Помилки</div></div>' +
+    '<div class="card gray"><div class="n">' + sm.paused + '</div><div class="l">Пауза</div></div>' +
+    '</div>' +
+    '<div class="btns">' +
+    '<button onclick="dl()">⬇ Завантажити TXT</button>' +
+    '<button class="sec" onclick="cp()">📋 Копіювати все</button>' +
+    '<button class="sec" onclick="location.reload()">🔄 Оновити</button>' +
+    '</div>' +
+    '<ul class="rec">' + recHtml + '</ul>' +
+    '<h2>✅ Продуктивні (' + p.productive_sources.length + ')</h2><table>' + rows(p.productive_sources, [{k:'name'},{k:'type'},{k:'new'},{k:'raw'}]) + '</table>' +
+    '<h2>🔻 Відсіяно фільтром (' + p.filtered_sources.length + ')</h2><table>' + rows(p.filtered_sources, [{k:'name'},{k:'type'},{k:'raw'}]) + '</table>' +
+    '<h2>⬜ Порожні (' + p.empty_sources.length + ')</h2><table>' + rows(p.empty_sources, [{k:'name'},{k:'type'},{k:'url'}]) + '</table>' +
+    '<h2>🔴 З помилками (' + p.errored_sources.length + ')</h2><table>' + rows(p.errored_sources, [{k:'name'},{k:'error'}]) + '</table>' +
+    '<h2>⏸ На паузі (' + p.paused_sources.length + ')</h2><table>' + rows(p.paused_sources, [{k:'name'},{k:'pause_reason'}]) + '</table>' +
+    '<h2>📊 Топ-10 за весь час</h2><table>' + rows(p.top_all_time, [{k:'name'},{k:'total'}]) + '</table>' +
+    '</div><script>' +
+    'var REPORT=`' + txt + '`;' +
+    'function dl(){var b=new Blob([REPORT],{type:"text/plain;charset=utf-8"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="source-health-"+new Date().toISOString().slice(0,10)+".txt";a.click();}' +
+    'function cp(){navigator.clipboard.writeText(REPORT).then(function(){alert("Звіт скопійовано!");});}' +
+    '</script></body></html>';
+}
+
 // 6c2. HTTP: Аналітика здоровʼя всіх джерел + рекомендації.
 // Виклик: .../sourceHealth
 // Дає повну картину: продуктивні/мертві джерела, де фільтр ріже,
@@ -1350,7 +1453,7 @@ exports.sourceHealth = functions
         .sort(function(a,b){ return b.total - a.total; })
         .slice(0, 10);
 
-      res.json({
+      var payload = {
         ok: true,
         generated_at: new Date().toISOString(),
         summary: {
@@ -1369,7 +1472,19 @@ exports.sourceHealth = functions
         errored_sources: errored,
         paused_sources: paused,
         top_all_time: topAllTime
-      });
+      };
+
+      // Режим HTML — гарна сторінка зі звітом + кнопки Завантажити/Копіювати
+      if ((req.query.format || '') === 'html') {
+        res.set('Content-Type', 'text/html; charset=utf-8');
+        return res.send(renderHealthHtml(payload));
+      }
+      // Режим TEXT — простий текстовий звіт для завантаження
+      if ((req.query.format || '') === 'text') {
+        res.set('Content-Type', 'text/plain; charset=utf-8');
+        return res.send(renderHealthText(payload));
+      }
+      res.json(payload);
     } catch(e) { res.status(500).json({ error:e.message }); }
   });
 
