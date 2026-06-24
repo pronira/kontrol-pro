@@ -1,5 +1,5 @@
 /**
- * GrantFlow ScanEngine v7.3 — потужніший обхід Google News (3 набори заголовків + 5 проксі) + 3 нових page-джерела
+ * GrantFlow ScanEngine v7.4 — контекст навколо посилань (фільтр бачить грантові слова в заголовках блоків) — фікс ІСАР Єднання та подібних
  * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
  * Виправлення зі звіту 08.06:
  *  - Google News 503: ротація User-Agent + retry з паузою
@@ -602,7 +602,19 @@ async function parsePageLinks(url, limit, src, windowDays) {
       var parent = $(this).parent();
       var dateEl = parent.find('time').attr('datetime') || parent.find('[class*="date"]').text().trim() || '';
       if (dateEl && !isWithinWindow(dateEl, windowDays)) return;
-      items.push({ title:text, url:fullUrl, description:'', date:dateEl });
+      // Беремо контекст навколо посилання — щоб фільтр бачив грантові слова,
+      // навіть якщо вони в заголовку блоку поряд, а не в самому тексті посилання.
+      // (Виправляє джерела типу ІСАР Єднання де гранти відсіювались)
+      var ctxText = '';
+      try {
+        var pTxt = parent.text().replace(/\s+/g,' ').trim();
+        // Якщо батько містить більше тексту ніж саме посилання — це корисний контекст
+        if (pTxt.length > text.length + 10) ctxText = pTxt.slice(0, 400);
+        // Додатково підхоплюємо найближчий заголовок (h2/h3/h4) якщо є
+        var closeHdr = $(this).closest('article, .item, .post, li, .card, div').find('h1,h2,h3,h4').first().text().trim();
+        if (closeHdr && ctxText.indexOf(closeHdr) < 0) ctxText = (closeHdr + ' ' + ctxText).slice(0, 400);
+      } catch(e) {}
+      items.push({ title:text, url:fullUrl, description:ctxText, date:dateEl });
     });
     if (items.length >= 5) break;
   }
@@ -1028,7 +1040,7 @@ exports.healthCheck = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin','*');
   try {
     var snap = await db.collection(COL.sources).where('source_status','==','active').get();
-    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.3' });
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.4' });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 
