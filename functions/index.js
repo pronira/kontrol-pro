@@ -1,5 +1,5 @@
 /**
- * GrantFlow ScanEngine v7.4 — контекст навколо посилань (фільтр бачить грантові слова в заголовках блоків) — фікс ІСАР Єднання та подібних
+ * GrantFlow ScanEngine v7.5 — універсальний проксі-обхід для Telegram (оживляє канали що блокують хмарний IP) + проксі для page 403 + мʼякший TG-фільтр
  * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
  * Виправлення зі звіту 08.06:
  *  - Google News 503: ротація User-Agent + retry з паузою
@@ -268,7 +268,39 @@ async function safeFetch(url, opts) {
   throw lastErr || new Error('Fetch failed: ' + url.slice(0, 80));
 }
 
-// ══════ ДАТА в межах вікна ══════
+// ══════ ПРОКСІ-ОБХІД (для Telegram/сайтів що блокують хмарний IP Google) ══════
+// Читає URL через публічні проксі-дзеркала (у них НЕ-Google IP).
+// Повертає текст контенту або null. validate(text) перевіряє що це не заглушка.
+async function fetchViaProxy(url, validate) {
+  var proxies = [
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+    'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(url),
+    'https://thingproxy.freeboard.io/fetch/' + url,
+    'https://corsproxy.io/?url=' + encodeURIComponent(url),
+    'https://proxy.cors.sh/' + url,
+    'https://api.allorigins.win/get?url=' + encodeURIComponent(url) // get повертає JSON.contents
+  ];
+  for (var pi = 0; pi < proxies.length; pi++) {
+    try {
+      var pr = await fetch(proxies[pi], {
+        timeout: FETCH_TIMEOUT, redirect: 'follow',
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36', 'Accept': '*/*' }
+      });
+      if (!pr.ok) continue;
+      var txt = await pr.text();
+      // allorigins /get обгортає у JSON {contents:"..."}
+      if (proxies[pi].indexOf('/get?') >= 0 && txt.indexOf('"contents"') >= 0) {
+        try { var j = JSON.parse(txt); txt = j.contents || ''; } catch(e) {}
+      }
+      if (txt && (!validate || validate(txt))) {
+        return { text: txt, proxy: proxies[pi].split('?')[0].replace('https://','').slice(0,25) };
+      }
+    } catch (_) { /* наступний проксі */ }
+  }
+  return null;
+}
+
+
 function isWithinWindow(dateStr, windowDays) {
   if (!dateStr) return true;
   try {
@@ -497,7 +529,42 @@ async function parseRSS(url, limit, windowDays) {
     });
 }
 
-// ══════ ПАРСЕР TELEGRAM (з нормалізацією URL + windowDays + RSS-fallback) ══════
+// Парсить пости Telegram з HTML (спільна логіка для прямого fetch і проксі)
+function parseTelegramHtml(html, limit, windowDays, items) {
+  var $ = cheerio.load(html);
+  var total = 0, dropped = 0;
+  $('.tgme_widget_message_wrap').each(function() {
+    if (items.length >= limit) return false;
+    var msg = $(this);
+    total++;
+    var dateStr = msg.find('.tgme_widget_message_date time').attr('datetime') || '';
+    if (dateStr && !isWithinWindow(dateStr, windowDays)) { dropped++; return; }
+    var text = msg.find('.tgme_widget_message_text').text().trim();
+    if (!text || text.length < 20) return;
+    var lower = text.toLowerCase();
+    if (SPAM.some(function(w){ return lower.indexOf(w)>=0; })) return;
+    if (!GRANT_WORDS.some(function(w){ return lower.indexOf(w)>=0; })) return;
+    var links = [];
+    msg.find('.tgme_widget_message_text a[href]').each(function() {
+      var h = $(this).attr('href') || '';
+      if (h && !h.startsWith('tg://') && h.indexOf('t.me/') < 0) links.push(h);
+    });
+    var parts = splitTelegramPost(text);
+    if (parts.length > 1) {
+      parts.forEach(function(sp, i){
+        var l2 = sp.toLowerCase();
+        if (!GRANT_WORDS.some(function(w){ return l2.indexOf(w)>=0; })) return;
+        if (SPAM.some(function(w){ return l2.indexOf(w)>=0; })) return;
+        if (items.length < limit) items.push({ title:sp.slice(0,200), description:sp, url:links[i]||links[0]||'', date:dateStr });
+      });
+    } else {
+      items.push({ title:text.slice(0,200), description:text, url:links[0]||'', date:dateStr });
+    }
+  });
+  return { total: total, dropped: dropped };
+}
+
+// ══════ ПАРСЕР TELEGRAM (прямий + проксі-обхід + RSS-fallback) ══════
 async function parseTelegram(url, limit, windowDays) {
   // Нормалізуємо: t.me/Channel → t.me/s/Channel (web preview)
   var tUrl = url;
@@ -507,42 +574,27 @@ async function parseTelegram(url, limit, windowDays) {
   var items = [];
   var totalMessages = 0;     // скільки всього постів на сторінці
   var droppedByDate = 0;     // скільки відсіяно за датою
+  // Спроба 1: прямий запит
   try {
     var resp = await safeFetch(tUrl);
     var html = await resp.text();
-    var $ = cheerio.load(html);
-    $('.tgme_widget_message_wrap').each(function() {
-      if (items.length >= limit) return false;
-      var msg = $(this);
-      totalMessages++;
-      var dateStr = msg.find('.tgme_widget_message_date time').attr('datetime') || '';
-      if (dateStr && !isWithinWindow(dateStr, windowDays)) { droppedByDate++; return; }
-      var text = msg.find('.tgme_widget_message_text').text().trim();
-      if (!text || text.length < 30) return;
-      var lower = text.toLowerCase();
-      if (SPAM.some(function(w){ return lower.indexOf(w)>=0; })) return;
-      if (!GRANT_WORDS.some(function(w){ return lower.indexOf(w)>=0; })) return;
-      var links = [];
-      msg.find('.tgme_widget_message_text a[href]').each(function() {
-        var h = $(this).attr('href') || '';
-        if (h && !h.startsWith('tg://') && h.indexOf('t.me/') < 0) links.push(h);
-      });
-      var parts = splitTelegramPost(text);
-      if (parts.length > 1) {
-        parts.forEach(function(sp, i){
-          var l2 = sp.toLowerCase();
-          if (!GRANT_WORDS.some(function(w){ return l2.indexOf(w)>=0; })) return;
-          if (SPAM.some(function(w){ return l2.indexOf(w)>=0; })) return;
-          if (items.length < limit) items.push({ title:sp.slice(0,200), description:sp, url:links[i]||links[0]||'', date:dateStr });
-        });
-      } else {
-        items.push({ title:text.slice(0,200), description:text, url:links[0]||'', date:dateStr });
-      }
-    });
-  } catch(e) { /* web-preview недоступний — спробуємо RSS-міст нижче */ }
+    var r = parseTelegramHtml(html, limit, windowDays, items);
+    totalMessages = r.total; droppedByDate = r.dropped;
+  } catch(e) { /* web-preview недоступний — спробуємо проксі/RSS нижче */ }
 
-  // FALLBACK: якщо web-preview порожній (канал вимкнув /s/), пробуємо RSS-мости.
-  // Це повертає канали типу USAID/UNDP які не мають публічного t.me/s/.
+  // Спроба 2: ПРОКСІ-ОБХІД. Google блокує t.me для хмарних IP →
+  // читаємо ту саму /s/ сторінку через проксі (НЕ-Google IP).
+  // Це повертає більшість "порожніх" каналів (USAID, UNDP, House of Europe...).
+  if (totalMessages === 0 && items.length === 0) {
+    var prox = await fetchViaProxy(tUrl, function(t){ return t.indexOf('tgme_widget_message') >= 0; });
+    if (prox && prox.text) {
+      var r2 = parseTelegramHtml(prox.text, limit, windowDays, items);
+      totalMessages = r2.total; droppedByDate = r2.dropped;
+      if (items.length > 0 || totalMessages > 0) items._tg_via_proxy = prox.proxy;
+    }
+  }
+
+  // Спроба 3: RSS-мости (якщо канал взагалі без публічного /s/).
   if (totalMessages === 0 && items.length === 0) {
     var channel = '';
     var m = url.match(/t\.me\/(?:s\/)?(@?[A-Za-z0-9_]+)/);
@@ -577,8 +629,16 @@ async function parseTelegram(url, limit, windowDays) {
 
 // ══════ ПАРСЕР СТОРІНКИ (з include/exclude + windowDays) ══════
 async function parsePageLinks(url, limit, src, windowDays) {
-  var resp = await safeFetch(url);
-  var html = await resp.text();
+  var html;
+  try {
+    var resp = await safeFetch(url);
+    html = await resp.text();
+  } catch(e) {
+    // Сайт блокує хмарний IP (403) або тимчасова помилка — пробуємо проксі
+    var prox = await fetchViaProxy(url, function(t){ return t.indexOf('<a') >= 0 && t.length > 500; });
+    if (prox && prox.text) { html = prox.text; }
+    else throw e; // проксі не допоміг — кидаємо оригінальну помилку
+  }
   var $ = cheerio.load(html);
   var items = [];
   var includeKw = (src.link_include||'').toLowerCase().split(',').filter(Boolean);
@@ -649,6 +709,7 @@ async function scanSingle(sourceId, src, maxNew) {
     rawStep.tg_total_messages = raw._tg_total_messages || 0;
     rawStep.tg_dropped_by_date = raw._tg_dropped_by_date || 0;
     if (raw._tg_via_bridge) rawStep.tg_via_bridge = raw._tg_via_bridge;
+    if (raw._tg_via_proxy) rawStep.tg_via_proxy = raw._tg_via_proxy;
   }
   step('raw_parse', rawStep);
 
@@ -1040,7 +1101,7 @@ exports.healthCheck = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin','*');
   try {
     var snap = await db.collection(COL.sources).where('source_status','==','active').get();
-    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.4' });
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.5' });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 
