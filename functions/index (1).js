@@ -1,0 +1,1812 @@
+/**
+ * GrantFlow ScanEngine v7.6 — виправлення мертвих URL на робочі (UNDP/House of Europe/Open Society) + GetGrant-агрегатор + остаточна пауза 404-джерел
+ * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
+ * Виправлення зі звіту 08.06:
+ *  - Google News 503: ротація User-Agent + retry з паузою
+ *  - Мертві домени: автопауза швидша (5 fails), кращі повідомлення
+ *  - non_ua фільтр: пом'якшено (тільки явні службові слова)
+ *  - Telegram 0: кращий парсинг, fallback на t.me/s/
+ *  - HTTP 403 (devex/undp/mindev): кілька UA, не валиться весь скан
+ *  - ВСІ 8 функцій: scanScheduled, scanSource, scanAll, rejectDetected,
+ *    clearScanLogs, healthCheck, dailyFoundCounter, dailyDetectedCount
+ */
+const functions = require('firebase-functions');
+const admin = require('firebase-admin');
+admin.initializeApp();
+const db = admin.firestore();
+const fetch = require('node-fetch');
+const cheerio = require('cheerio');
+const { XMLParser } = require('fast-xml-parser');
+
+const COL = { sources:'gf_sources', detected:'gf_detected', scanIdx:'gf_scan_index' };
+
+// Ротація User-Agent — для обходу 403/503 (Google News, devex, undp)
+const UA_LIST = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+  'Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0',
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1'
+];
+const UA = UA_LIST[0];
+const FETCH_TIMEOUT = 12000;
+const MAX_FAILS_BEFORE_PAUSE = 7;
+
+// ══════ ФІЛЬТРИ ══════
+const GRANT_WORDS = [
+  'грант','гранти','гранто','конкурс','програм','фінансуван','підтримк','можливіст',
+  'заявк','відбір','стипенді','субгрант','мікрогрант','оголош','прийом заяв',
+  'grant','grants','funding','fund','call','calls','application','apply','opportunity','fellowship',
+  'scholarship','support','program','programme','відновлен','реконструкц','розвиток',
+  'проєкт','проект','ініціатив','допомог','обладнан','deadline','дедлайн',
+  'конкурсн','тендер','премі','нагород','award','prize','contest','competition',
+  'кошти','бюджет','донор','донат','краудфандинг','ваучер','компенсаці',
+  'безповоротн','цільов','підприєм','бізнес-план','startup','стартап','акселерат',
+  'інкубат','боотcamp','bootcamp','хакатон','hackathon','pitch','питч',
+  'стажуван','internship','навчальн','тренінг','training','воркшоп','workshop',
+  'мобільніст','резиденці','residency','exchange','обмін','візит'
+];
+const SPAM = [
+  'вакансія','вакансії','job','jobs','career','hiring','vacancy',
+  'купити','продаж','казино','ставки','порно',
+  'login','logout','register','signup','privacy policy',
+  'результати розіграш','переможець розіграш'
+];
+const BAD_TITLE = [
+  /^\[?email\s*protected\]?/i, /^mailto:/i, /^https?:\/\//i,
+  /^@/, /^\d+$/, /^[\s\W]+$/,
+  /^(головна|контакти|про нас|about|home|menu|#|javascript|undefined|null)$/i,
+  /cloudflare/i, /captcha/i, /^404|^not found/i, /access denied/i
+];
+// Службові слова навігації — пом'якшений non-UA фільтр.
+// Відсіюємо ТІЛЬКИ якщо весь заголовок = службове слово (не якщо містить).
+const NAV_WORDS = [
+  'новини','про міністерство','команда','структура','контакти','напрями',
+  'про нас','послуги','ціни','блог','вакансії','умови використання',
+  'угода користувача','реєстрація','логін','довідка','конфіденційність',
+  'partner with us','receive funding','about','home','menu','login','sign up',
+  'privacy','terms','contact','news','careers'
+];
+
+function passesFilter(title, desc) {
+  if (!title || title.length < 12) return false;
+  if (BAD_TITLE.some(function(re) { return re.test(title.trim()); })) return false;
+  if (title.trim().split(' ').length < 2) return false;
+  var hay = (title + ' ' + desc).toLowerCase();
+  if (SPAM.some(function(w) { return hay.indexOf(w) >= 0; })) return false;
+  return GRANT_WORDS.some(function(w) { return hay.indexOf(w) >= 0; });
+}
+
+// Повертає ТОЧНУ причину чому заголовок відсіяно (для детального звіту)
+function filterReason(title, desc) {
+  if (!title || title.length < 12) return 'короткий(<12)';
+  var bad = BAD_TITLE.find(function(re) { return re.test(title.trim()); });
+  if (bad) return 'службовий-шаблон';
+  if (title.trim().split(' ').length < 2) return 'одне-слово';
+  var hay = (title + ' ' + desc).toLowerCase();
+  var spam = SPAM.find(function(w) { return hay.indexOf(w) >= 0; });
+  if (spam) return 'спам:"' + spam + '"';
+  if (!GRANT_WORDS.some(function(w) { return hay.indexOf(w) >= 0; })) return 'немає-грант-слів';
+  return 'пройшов';
+}
+
+// Пом'якшена перевірка "не наша географія/навігація":
+// блокуємо лише якщо заголовок ТОЧНО дорівнює службовому слову
+function isNavWord(title) {
+  var t = (title||'').trim().toLowerCase();
+  return NAV_WORDS.indexOf(t) >= 0;
+}
+
+
+// ══════ ДЕДЛАЙН ══════
+const MONTHS_MAP = {
+  'січня':'01','лютого':'02','березня':'03','квітня':'04','травня':'05','червня':'06',
+  'липня':'07','серпня':'08','вересня':'09','жовтня':'10','листопада':'11','грудня':'12',
+  'січень':'01','лютий':'02','березень':'03','квітень':'04','травень':'05','червень':'06',
+  'липень':'07','серпень':'08','вересень':'09','жовтень':'10','листопад':'11','грудень':'12',
+  'january':'01','february':'02','march':'03','april':'04','may':'05','june':'06',
+  'july':'07','august':'08','september':'09','october':'10','november':'11','december':'12',
+  'jan':'01','feb':'02','mar':'03','apr':'04','may':'05','jun':'06',
+  'jul':'07','aug':'08','sep':'09','oct':'10','nov':'11','dec':'12'
+};
+const ALL_MONTH_NAMES = Object.keys(MONTHS_MAP).join('|');
+
+function extractDeadline(text) {
+  var ctx = text;
+  var ctxMatch = text.match(/(?:дедлайн|deadline|термін|до|until|before|by|closes?|closing|прийом до|подати до)[:\s\-–—]*(.{5,60})/i);
+  if (ctxMatch) ctx = ctxMatch[1];
+  var m = ctx.match(/(\d{1,2})[\.\/](\d{1,2})[\.\/](20\d{2})/);
+  if (m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  m = ctx.match(/(20\d{2})-(\d{2})-(\d{2})/);
+  if (m) return m[0];
+  var re1 = new RegExp('(\\d{1,2})[\\s\\-\\.]+(' + ALL_MONTH_NAMES + ')[\\s\\-\\.,]+(20\\d{2})', 'i');
+  m = ctx.match(re1);
+  if (m) return m[3]+'-'+(MONTHS_MAP[m[2].toLowerCase()]||'01')+'-'+m[1].padStart(2,'0');
+  var re2 = new RegExp('(' + ALL_MONTH_NAMES + ')[\\s\\-\\.]+?(\\d{1,2})[\\s,]+(20\\d{2})', 'i');
+  m = ctx.match(re2);
+  if (m) return m[3]+'-'+(MONTHS_MAP[m[1].toLowerCase()]||'01')+'-'+m[2].padStart(2,'0');
+  if (ctx !== text) {
+    m = text.match(/(\d{1,2})[\.\/](\d{1,2})[\.\/](20\d{2})/);
+    if (m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+    m = text.match(/(20\d{2})-(\d{2})-(\d{2})/);
+    if (m) return m[0];
+    m = text.match(re1);
+    if (m) return m[3]+'-'+(MONTHS_MAP[m[2].toLowerCase()]||'01')+'-'+m[1].padStart(2,'0');
+    m = text.match(re2);
+    if (m) return m[3]+'-'+(MONTHS_MAP[m[1].toLowerCase()]||'01')+'-'+m[2].padStart(2,'0');
+  }
+  return '';
+}
+
+function extractAmount(text) {
+  var patterns = [
+    /(?:до|up to|max|maximum|максимум)\s*[\$€£]?\s*[\d,.\s]+\s*(?:тис|млн|thousand|million|грн|USD|EUR)?/i,
+    /[\$€£]\s*[\d,.\s]+(?:\s*(?:тис|млн|thousand|million))?/i,
+    /[\d,.\s]+\s*(?:грн|гривень|USD|EUR|доларів|євро|dollars|euros)/i,
+    /грант(?:ова сума|у розмірі)[:\s]+[\d,.\s]+/i
+  ];
+  for (var i = 0; i < patterns.length; i++) {
+    var m = text.match(patterns[i]);
+    if (m) return m[0].trim().slice(0, 80);
+  }
+  return '';
+}
+
+// ══════ КЛАСИФІКАТОРИ ══════
+const DONORS = [
+  [/USAID/i,'USAID'],[/UNDP/i,'UNDP'],[/UNICEF/i,'UNICEF'],
+  [/\bEU\b|Європейськ\w+ Союз|European Union/i,'EU'],
+  [/GIZ/i,'GIZ'],[/IREX/i,'IREX'],[/Erasmus/i,'Erasmus+'],
+  [/House of Europe/i,'House of Europe'],[/British Council/i,'British Council'],
+  [/SIDA|Швеці/i,'SIDA'],[/Світовий банк|World Bank/i,'World Bank'],
+  [/ЄБРР|EBRD/i,'EBRD'],[/UNESCO|ЮНЕСКО/i,'UNESCO'],
+  [/UNHCR/i,'UNHCR'],[/IOM|МОМ/i,'IOM'],
+  [/Червон\w+ Хрест|Red Cross|IFRC/i,'Червоний Хрест'],
+  [/Карітас|Caritas/i,'Карітас'],[/ГУРТ|GURT/i,'ГУРТ'],
+  [/ІСАР|Єднання|ISAR/i,'ІСАР Єднання'],
+  [/Фонд Сх\w+ Європ|EEF/i,'Фонд Східна Європа'],
+  [/NED\b/i,'NED'],[/NDI\b/i,'NDI'],[/Pact\b/i,'Pact'],
+  [/Open Society|Відродження/i,'Open Society'],
+  [/Mercy Corps/i,'Mercy Corps'],[/ACTED/i,'ACTED'],
+  [/People in Need|PIN\b/i,'People in Need'],
+  [/UKF|УКФ|Український культурний фонд/i,'УКФ'],
+  [/Дія|Diia/i,'Дія'],[/КМУ|Кабінет Міністрів/i,'КМУ'],
+  [/OSCE|ОБСЄ/i,'ОБСЄ'],[/Council of Europe|Рада Європи/i,'Рада Європи'],
+  [/JICA/i,'JICA'],[/DOBRE/i,'DOBRE'],[/U-LEAD/i,'U-LEAD'],
+  [/Heinrich B/i,'Heinrich Böll'],[/Konrad Adenauer/i,'Konrad Adenauer']
+];
+const TOPICS = [
+  [/освіт|школ|ліцей|навчан|education|training|teacher|вчител/i,'Освіта'],
+  [/культур|мистецтв|бібліотек|музей|culture|creative/i,'Культура'],
+  [/молод|youth|студент/i,'Молодь'],[/ветеран|veteran|захисник/i,'Ветерани'],
+  [/ВПО|переселен|IDP|displaced/i,'ВПО/Переселенці'],
+  [/жінк|гендер|gender|women|рівність/i,'Жінки/Гендер'],
+  [/інклюзі|disability|інвалідн/i,'Інклюзія'],
+  [/екологі|environment|клімат|climate/i,'Екологія'],
+  [/здоров|медиц|health|амбулатор|лікарн/i,'Медицина'],
+  [/цифров|digital|IT|технолог/i,'Цифровізація'],
+  [/енерг|energy|утеплен|котельн/i,'Енергоефективність'],
+  [/інфраструктур|дорог|водопостачан/i,'Інфраструктура'],
+  [/соціальн|social|захист/i,'Соціальний захист'],
+  [/підприємн|бізнес|business|entrepreneur/i,'Підприємництво'],
+  [/громад|community|hromada|ОМС|місцев|самоврядув/i,'Громади'],
+  [/відновлен|відбудов|reconstruction|recovery/i,'Відновлення'],
+  [/правозахист|human rights|демократ/i,'Правозахист'],
+  [/гуманітарн|humanitarian/i,'Гуманітарна допомога'],
+  [/агро|сільськ\w+ господ|agricultur|фермер/i,'Агро'],
+  [/психо|mental health|травм/i,'Психосоціальна підтримка'],
+  [/медіа|media|журналіст/i,'Медіа']
+];
+const APPLICANTS = [
+  [/громадськ\w+ організац|ГО\b|НУО|NGO|CSO|nonprofit|civil society|неприбутков/i,'Громадські організації'],
+  [/ОМС|орган\w+ місцев|local government|municipality|сільськ\w+ рад|селищн|міськ\w+ рад/i,'ОМС'],
+  [/заклад\w+ освіт|школ|ліцей|universit|коледж/i,'Заклади освіти'],
+  [/бізнес|підприєм|малий|середній|SME|business|ФОП/i,'Бізнес/Підприємці'],
+  [/благодійн|charity|фонд/i,'Благодійні фонди'],
+  [/молодіжн|youth org/i,'Молодіжні організації'],
+  [/фізичн\w+ особ|individual|особист|кожен/i,'Фізичні особи'],
+  [/комунальн/i,'Комунальні підприємства'],
+  [/ОТГ|об.єднан\w+ громад/i,'ОТГ']
+];
+const GEO = [
+  [/вся Україна|всій Україн|all Ukraine|nationwide/i,'Вся Україна'],
+  [/міжнародн|international|global/i,'Міжнародно'],
+  [/Вінниц/i,'Вінницька'],[/Волин/i,'Волинська'],[/Дніпр/i,'Дніпропетровська'],
+  [/Донецьк/i,'Донецька'],[/Житомир/i,'Житомирська'],[/Закарпат/i,'Закарпатська'],
+  [/Запоріж/i,'Запорізька'],[/Івано-Франків/i,'Івано-Франківська'],
+  [/Київ/i,'Київська'],[/Кіровоградськ/i,'Кіровоградська'],
+  [/Луганськ/i,'Луганська'],[/Львів/i,'Львівська'],[/Миколаїв/i,'Миколаївська'],
+  [/Одес/i,'Одеська'],[/Полтав/i,'Полтавська'],[/Рівн/i,'Рівненська'],
+  [/Сум/i,'Сумська'],[/Тернопіл/i,'Тернопільська'],[/Харків/i,'Харківська'],
+  [/Херсон/i,'Херсонська'],[/Хмельниц/i,'Хмельницька'],
+  [/Черкас/i,'Черкаська'],[/Чернівец/i,'Чернівецька'],[/Чернігів/i,'Чернігівська'],
+  [/громад|hromada|community/i,'Громади'],
+  [/прифронтов|деокупован|постраждал|frontline/i,'Постраждалі території'],
+  [/сільськ|село|rural/i,'Сільські території']
+];
+
+function classify(title, desc) {
+  var hay = (title + ' ' + desc);
+  var r = { donor:'', topics:'', applicants:'', geography:'', deadline:'', amount_text:'', auto_priority:'medium' };
+  var d=[],t=[],a=[],g=[];
+  DONORS.forEach(function(p){if(p[0].test(hay)&&d.indexOf(p[1])<0)d.push(p[1]);});
+  TOPICS.forEach(function(p){if(p[0].test(hay)&&t.indexOf(p[1])<0)t.push(p[1]);});
+  APPLICANTS.forEach(function(p){if(p[0].test(hay)&&a.indexOf(p[1])<0)a.push(p[1]);});
+  GEO.forEach(function(p){if(p[0].test(hay)&&g.indexOf(p[1])<0)g.push(p[1]);});
+  r.donor=d.join(', '); r.topics=t.join(', '); r.applicants=a.join(', '); r.geography=g.join(', ');
+  r.deadline = extractDeadline(hay);
+  r.amount_text = extractAmount(hay);
+  if (r.deadline) { r.auto_priority = new Date(r.deadline) > new Date() ? 'high' : 'low'; }
+  if (d.length && t.length) r.auto_priority = 'high';
+  return r;
+}
+
+// ══════ FETCH з ротацією UA і retry ══════
+async function safeFetch(url, opts) {
+  opts = opts || {};
+  var lastErr = null;
+  // Пробуємо різні User-Agent при 403/503/429
+  for (var attempt = 0; attempt < UA_LIST.length; attempt++) {
+    try {
+      var resp = await fetch(url, Object.assign({
+        headers: { 'User-Agent': UA_LIST[attempt], 'Accept': 'text/html,application/xhtml+xml,application/xml,*/*' },
+        timeout: FETCH_TIMEOUT, redirect: 'follow'
+      }, opts));
+      // 403/503/429 — пробуємо інший UA
+      if ((resp.status === 403 || resp.status === 503 || resp.status === 429) && attempt < UA_LIST.length - 1) {
+        await new Promise(function(r){ setTimeout(r, 1500 * (attempt + 1)); }); // пауза перед retry
+        continue;
+      }
+      if (!resp.ok) throw new Error('HTTP ' + resp.status + ' from ' + url.slice(0, 80));
+      return resp;
+    } catch (e) {
+      lastErr = e;
+      // DNS / connection — немає сенсу пробувати інший UA
+      if (e.code === 'ENOTFOUND' || e.code === 'EAI_AGAIN' || e.code === 'ECONNREFUSED' || e.code === 'EHOSTUNREACH') throw e;
+      if (attempt < UA_LIST.length - 1) { await new Promise(function(r){ setTimeout(r, 1000); }); continue; }
+    }
+  }
+  throw lastErr || new Error('Fetch failed: ' + url.slice(0, 80));
+}
+
+// ══════ ПРОКСІ-ОБХІД (для Telegram/сайтів що блокують хмарний IP Google) ══════
+// Читає URL через публічні проксі-дзеркала (у них НЕ-Google IP).
+// Повертає текст контенту або null. validate(text) перевіряє що це не заглушка.
+async function fetchViaProxy(url, validate) {
+  var proxies = [
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+    'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(url),
+    'https://thingproxy.freeboard.io/fetch/' + url,
+    'https://corsproxy.io/?url=' + encodeURIComponent(url),
+    'https://proxy.cors.sh/' + url,
+    'https://api.allorigins.win/get?url=' + encodeURIComponent(url) // get повертає JSON.contents
+  ];
+  for (var pi = 0; pi < proxies.length; pi++) {
+    try {
+      var pr = await fetch(proxies[pi], {
+        timeout: FETCH_TIMEOUT, redirect: 'follow',
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36', 'Accept': '*/*' }
+      });
+      if (!pr.ok) continue;
+      var txt = await pr.text();
+      // allorigins /get обгортає у JSON {contents:"..."}
+      if (proxies[pi].indexOf('/get?') >= 0 && txt.indexOf('"contents"') >= 0) {
+        try { var j = JSON.parse(txt); txt = j.contents || ''; } catch(e) {}
+      }
+      if (txt && (!validate || validate(txt))) {
+        return { text: txt, proxy: proxies[pi].split('?')[0].replace('https://','').slice(0,25) };
+      }
+    } catch (_) { /* наступний проксі */ }
+  }
+  return null;
+}
+
+
+function isWithinWindow(dateStr, windowDays) {
+  if (!dateStr) return true;
+  try {
+    var d = new Date(dateStr);
+    if (isNaN(d.getTime())) return true;
+    var cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - windowDays);
+    return d >= cutoff;
+  } catch(e) { return true; }
+}
+
+// ══════ ДЕТАЛЬНА СТОРІНКА ══════
+async function fetchDetailPage(url) {
+  if (!url || url.length < 10) return null;
+  try {
+    var resp = await safeFetch(url);
+    var html = await resp.text();
+    var $ = cheerio.load(html);
+    $('script,style,nav,header,footer,aside,.menu,.sidebar,.nav,.cookie,.popup').remove();
+    var text = $('article,.content,.post,.entry,main,.page-content,.grant-detail,.single-post').text().trim();
+    if (!text || text.length < 50) text = $('body').text().trim();
+    return text.replace(/\s+/g,' ').slice(0,8000);
+  } catch(e) { return null; }
+}
+
+// ══════ МУЛЬТИ-ГРАНТ: кілька грантів на одній сторінці ══════
+const MULTI_SELECTORS = [
+  '.grant-item','.grant-card','.grant-block','.call-item','.opportunity',
+  '[class*="grant"]','[class*="call"]','[class*="opportunity"]',
+  'article','.item','.post','.card','.entry','.news-item','.program-item'
+];
+
+async function extractMultipleGrants(url) {
+  if (!url) return null;
+  try {
+    var resp = await safeFetch(url);
+    var html = await resp.text();
+    var $ = cheerio.load(html);
+    $('script,style,nav,header,footer,aside,.menu,.sidebar,.nav,.cookie').remove();
+
+    // Спосіб 1: CSS-селектори блоків
+    for (var si = 0; si < MULTI_SELECTORS.length; si++) {
+      var blocks = $(MULTI_SELECTORS[si]);
+      if (blocks.length < 3) continue;
+      var items = [];
+      blocks.each(function() {
+        var el = $(this);
+        var text = el.text().replace(/\s+/g,' ').trim();
+        if (text.length < 40) return;
+        if (!GRANT_WORDS.some(function(w){ return text.toLowerCase().indexOf(w)>=0; })) return;
+        var hdr = el.find('h1,h2,h3,h4').first().text().trim() || el.find('a').first().text().trim();
+        var blockUrl = el.find('a[href]').first().attr('href') || '';
+        try { if (blockUrl && !blockUrl.startsWith('http')) blockUrl = new URL(blockUrl, url).toString(); } catch(e) {}
+        items.push({ title:(hdr||text).slice(0,200), description:text.slice(0,1000), url:blockUrl||url, date:'' });
+      });
+      if (items.length >= 3) return items;
+    }
+
+    // Спосіб 2: посилання в контентній зоні
+    var contentArea = $('main, .content, .entry-content, article, .post-content, #content, .page-content').first();
+    var ctx = contentArea.length ? contentArea : $('body');
+    var linkItems = [];
+    var seenUrls = {};
+    ctx.find('a[href]').each(function() {
+      var el = $(this);
+      var href = el.attr('href') || '';
+      var text = el.text().trim().replace(/\s+/g,' ');
+      if (!text || text.length < 15) return;
+      if (BAD_TITLE.some(function(re){ return re.test(text); })) return;
+      var fullUrl;
+      try { fullUrl = href.startsWith('http') ? href : new URL(href, url).toString(); } catch(e) { return; }
+      if (fullUrl === url) return;
+      if (href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+      if (seenUrls[fullUrl]) return;
+      seenUrls[fullUrl] = true;
+      var parentText = el.parent().text().replace(/\s+/g,' ').trim();
+      var desc = parentText.length > text.length ? parentText.slice(0,500) : text;
+      var hay = (text + ' ' + desc).toLowerCase();
+      if (!GRANT_WORDS.some(function(w){ return hay.indexOf(w)>=0; })) return;
+      if (SPAM.some(function(w){ return hay.indexOf(w)>=0; })) return;
+      linkItems.push({ title:text.slice(0,200), description:desc, url:fullUrl, date:'' });
+    });
+    if (linkItems.length >= 3) return linkItems;
+
+    // Спосіб 3: заголовки H2/H3
+    var headerItems = [];
+    ctx.find('h2,h3').each(function() {
+      var hdr = $(this);
+      var title = hdr.text().trim();
+      if (!title || title.length < 15) return;
+      if (BAD_TITLE.some(function(re){ return re.test(title); })) return;
+      var desc = '';
+      var next = hdr.next(); var safety = 0;
+      while (next.length && !next.is('h2,h3') && safety < 10) {
+        desc += ' ' + next.text(); next = next.next(); safety++;
+      }
+      desc = desc.replace(/\s+/g,' ').trim().slice(0,500);
+      var hay = (title + ' ' + desc).toLowerCase();
+      if (!GRANT_WORDS.some(function(w){ return hay.indexOf(w)>=0; })) return;
+      var blockUrl = hdr.next('a').attr('href') || hdr.find('a').attr('href') || '';
+      try { if (blockUrl && !blockUrl.startsWith('http')) blockUrl = new URL(blockUrl, url).toString(); } catch(e) {}
+      headerItems.push({ title:title.slice(0,200), description:desc, url:blockUrl||url, date:'' });
+    });
+    if (headerItems.length >= 3) return headerItems;
+
+    return null;
+  } catch(e) { return null; }
+}
+
+// ══════ РОЗБИВКА TELEGRAM ПОСТА ══════
+function splitTelegramPost(text) {
+  var pats = [
+    /\n\s*\n(?=[🔹🔸▪️•▶️➡️✅🔔💡📌🎯🌟⭐🟢🟡🔴])/u,
+    /\n\s*\n(?=\d+[.)]\s)/
+  ];
+  for (var i = 0; i < pats.length; i++) {
+    var parts = text.split(pats[i]).map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 40; });
+    if (parts.length >= 2) return parts;
+  }
+  return [text];
+}
+
+function stripHtml(h) {
+  return String(h||'').replace(/<[^>]*>/g,' ').replace(/&\w+;/g,' ').replace(/\s+/g,' ').trim().slice(0,3000);
+}
+
+// ══════ ПАРСЕР RSS (з підтримкою Atom + windowDays) ══════
+// ══════ СТІЙКИЙ FETCH ДЛЯ GOOGLE NEWS (обхід 503 на хмарних IP) ══════
+async function fetchGoogleNews(url) {
+  // Кілька наборів заголовків — ротуємо, бо Google блокує за патерном
+  var headerSets = [
+    {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+      'Accept': 'application/rss+xml,application/xml,text/xml,*/*;q=0.8',
+      'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8',
+      'Referer': 'https://www.google.com/'
+    },
+    {
+      'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+      'Accept': 'application/xml,text/xml,*/*',
+      'Accept-Language': 'uk-UA,uk;q=0.9'
+    },
+    {
+      'User-Agent': 'feedparser/6.0.10 +https://github.com/kurtmckee/feedparser/',
+      'Accept': 'application/rss+xml,application/atom+xml,application/xml;q=0.9,*/*;q=0.8'
+    }
+  ];
+  var lastErr = null;
+  // Стратегія 1: прямий запит з ротацією заголовків (4 спроби)
+  for (var attempt = 0; attempt < 4; attempt++) {
+    try {
+      var hs = headerSets[attempt % headerSets.length];
+      var resp = await fetch(url, { headers: hs, timeout: FETCH_TIMEOUT, redirect: 'follow' });
+      if (resp.ok) {
+        var txt = await resp.text();
+        if (txt && txt.indexOf('<') >= 0 && (txt.indexOf('<item') >= 0 || txt.indexOf('<entry') >= 0)) {
+          return { ok: true, text: function(){ return Promise.resolve(txt); }, _cached: txt };
+        }
+      }
+      await new Promise(function(r){ setTimeout(r, 1200 * (attempt + 1)); });
+    } catch (e) { lastErr = e; await new Promise(function(r){ setTimeout(r, 1000); }); }
+  }
+
+  // Стратегія 2: розширений набір проксі-дзеркал (читають Google замість нас).
+  // Перевіряємо що повертається саме RSS (є <item>), а не заглушка.
+  var proxies = [
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+    'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(url),
+    'https://corsproxy.io/?url=' + encodeURIComponent(url),
+    'https://thingproxy.freeboard.io/fetch/' + url,
+    'https://proxy.cors.sh/' + url
+  ];
+  for (var pi = 0; pi < proxies.length; pi++) {
+    try {
+      var pr = await fetch(proxies[pi], {
+        timeout: FETCH_TIMEOUT, redirect: 'follow',
+        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': '*/*', 'x-requested-with': 'XMLHttpRequest' }
+      });
+      if (pr.ok) {
+        var ptxt = await pr.text();
+        if (ptxt && (ptxt.indexOf('<item') >= 0 || ptxt.indexOf('<entry') >= 0)) {
+          return { ok: true, text: function(){ return Promise.resolve(ptxt); }, _cached: ptxt };
+        }
+      }
+    } catch (_) { /* наступний проксі */ }
+  }
+  throw lastErr || new Error('Google News недоступний (прямий 503 + усі проксі заблоковані)');
+}
+
+async function parseRSS(url, limit, windowDays) {
+  var resp;
+  // Google News часто блокує хмарні IP (503). Спеціальна стійка обробка.
+  if (url.indexOf('news.google.com') >= 0) {
+    resp = await fetchGoogleNews(url);
+  } else {
+    resp = await safeFetch(url);
+  }
+  var xml = await resp.text();
+  var p = new XMLParser({ ignoreAttributes:false, attributeNamePrefix:'@_' });
+  var d = p.parse(xml);
+  var ch = (d.rss && d.rss.channel) ? d.rss.channel : (d.feed || {});
+  var entries = ch.item || ch.entry || [];
+  var arr = Array.isArray(entries) ? entries : (entries ? [entries] : []);
+  return arr
+    .filter(function(e){
+      var ds = e.pubDate || e.published || e.updated || '';
+      return isWithinWindow(ds, windowDays);
+    })
+    .slice(0, limit)
+    .map(function(e){
+      var link = e.link;
+      if (Array.isArray(link)) {
+        var alt = link.find(function(l){ return l['@_rel']==='alternate' || !l['@_rel']; });
+        link = alt ? (alt['@_href'] || alt['#text'] || '') : (link[0]['@_href'] || '');
+      } else if (typeof link === 'object') {
+        link = link['@_href'] || link['#text'] || '';
+      }
+      var title = e.title;
+      if (typeof title === 'object') title = title['#text'] || '';
+      return {
+        title: String(title||'').trim(),
+        url: String(link||'').trim(),
+        description: stripHtml(e.description||e.summary||e['content:encoded']||e.content||''),
+        date: e.pubDate||e.published||e.updated||''
+      };
+    });
+}
+
+// Парсить пости Telegram з HTML (спільна логіка для прямого fetch і проксі)
+function parseTelegramHtml(html, limit, windowDays, items) {
+  var $ = cheerio.load(html);
+  var total = 0, dropped = 0;
+  $('.tgme_widget_message_wrap').each(function() {
+    if (items.length >= limit) return false;
+    var msg = $(this);
+    total++;
+    var dateStr = msg.find('.tgme_widget_message_date time').attr('datetime') || '';
+    if (dateStr && !isWithinWindow(dateStr, windowDays)) { dropped++; return; }
+    var text = msg.find('.tgme_widget_message_text').text().trim();
+    if (!text || text.length < 20) return;
+    var lower = text.toLowerCase();
+    if (SPAM.some(function(w){ return lower.indexOf(w)>=0; })) return;
+    if (!GRANT_WORDS.some(function(w){ return lower.indexOf(w)>=0; })) return;
+    var links = [];
+    msg.find('.tgme_widget_message_text a[href]').each(function() {
+      var h = $(this).attr('href') || '';
+      if (h && !h.startsWith('tg://') && h.indexOf('t.me/') < 0) links.push(h);
+    });
+    var parts = splitTelegramPost(text);
+    if (parts.length > 1) {
+      parts.forEach(function(sp, i){
+        var l2 = sp.toLowerCase();
+        if (!GRANT_WORDS.some(function(w){ return l2.indexOf(w)>=0; })) return;
+        if (SPAM.some(function(w){ return l2.indexOf(w)>=0; })) return;
+        if (items.length < limit) items.push({ title:sp.slice(0,200), description:sp, url:links[i]||links[0]||'', date:dateStr });
+      });
+    } else {
+      items.push({ title:text.slice(0,200), description:text, url:links[0]||'', date:dateStr });
+    }
+  });
+  return { total: total, dropped: dropped };
+}
+
+// ══════ ПАРСЕР TELEGRAM (прямий + проксі-обхід + RSS-fallback) ══════
+async function parseTelegram(url, limit, windowDays) {
+  // Нормалізуємо: t.me/Channel → t.me/s/Channel (web preview)
+  var tUrl = url;
+  if (tUrl.indexOf('t.me/') >= 0 && tUrl.indexOf('t.me/s/') < 0) {
+    tUrl = tUrl.replace('t.me/', 't.me/s/');
+  }
+  var items = [];
+  var totalMessages = 0;     // скільки всього постів на сторінці
+  var droppedByDate = 0;     // скільки відсіяно за датою
+  // Спроба 1: прямий запит
+  try {
+    var resp = await safeFetch(tUrl);
+    var html = await resp.text();
+    var r = parseTelegramHtml(html, limit, windowDays, items);
+    totalMessages = r.total; droppedByDate = r.dropped;
+  } catch(e) { /* web-preview недоступний — спробуємо проксі/RSS нижче */ }
+
+  // Спроба 2: ПРОКСІ-ОБХІД. Google блокує t.me для хмарних IP →
+  // читаємо ту саму /s/ сторінку через проксі (НЕ-Google IP).
+  // Це повертає більшість "порожніх" каналів (USAID, UNDP, House of Europe...).
+  if (totalMessages === 0 && items.length === 0) {
+    var prox = await fetchViaProxy(tUrl, function(t){ return t.indexOf('tgme_widget_message') >= 0; });
+    if (prox && prox.text) {
+      var r2 = parseTelegramHtml(prox.text, limit, windowDays, items);
+      totalMessages = r2.total; droppedByDate = r2.dropped;
+      if (items.length > 0 || totalMessages > 0) items._tg_via_proxy = prox.proxy;
+    }
+  }
+
+  // Спроба 3: RSS-мости (якщо канал взагалі без публічного /s/).
+  if (totalMessages === 0 && items.length === 0) {
+    var channel = '';
+    var m = url.match(/t\.me\/(?:s\/)?(@?[A-Za-z0-9_]+)/);
+    if (m) channel = m[1].replace('@','');
+    if (channel) {
+      var bridges = [
+        'https://rsshub.app/telegram/channel/' + channel,
+        'https://tg.i-c-a.su/rss/' + channel
+      ];
+      for (var bi = 0; bi < bridges.length && items.length === 0; bi++) {
+        try {
+          var rssItems = await parseRSS(bridges[bi], limit, windowDays);
+          if (rssItems && rssItems.length > 0) {
+            rssItems.forEach(function(it) {
+              var lower = (it.title + ' ' + (it.description||'')).toLowerCase();
+              if (SPAM.some(function(w){ return lower.indexOf(w)>=0; })) return;
+              if (!GRANT_WORDS.some(function(w){ return lower.indexOf(w)>=0; })) return;
+              if (items.length < limit) items.push(it);
+            });
+            if (items.length > 0) { items._tg_via_bridge = bridges[bi]; totalMessages = rssItems.length; }
+          }
+        } catch(_) { /* міст недоступний — пробуємо наступний */ }
+      }
+    }
+  }
+
+  // Прикріплюємо діагностику до масиву (для scanDebug)
+  items._tg_total_messages = totalMessages;
+  items._tg_dropped_by_date = droppedByDate;
+  return items;
+}
+
+// ══════ ПАРСЕР СТОРІНКИ (з include/exclude + windowDays) ══════
+async function parsePageLinks(url, limit, src, windowDays) {
+  var html;
+  try {
+    var resp = await safeFetch(url);
+    html = await resp.text();
+  } catch(e) {
+    // Сайт блокує хмарний IP (403) або тимчасова помилка — пробуємо проксі
+    var prox = await fetchViaProxy(url, function(t){ return t.indexOf('<a') >= 0 && t.length > 500; });
+    if (prox && prox.text) { html = prox.text; }
+    else throw e; // проксі не допоміг — кидаємо оригінальну помилку
+  }
+  var $ = cheerio.load(html);
+  var items = [];
+  var includeKw = (src.link_include||'').toLowerCase().split(',').filter(Boolean);
+  var excludeKw = (src.link_exclude||'').toLowerCase().split(',').filter(Boolean);
+  // Спочатку шукаємо в контентних зонах, потім — всюди
+  var contentSel = ['main a[href]','article a[href]','.content a[href]','.grants a[href]','.opportunities a[href]','a[href]'];
+  for (var ci = 0; ci < contentSel.length; ci++) {
+    $(contentSel[ci]).each(function() {
+      if (items.length >= limit) return false;
+      var href = $(this).attr('href') || '';
+      var text = $(this).text().trim().replace(/\s+/g,' ');
+      if (!text || text.length < 12 || !href) return;
+      if (BAD_TITLE.some(function(re){ return re.test(text.trim()); })) return;
+      var fullUrl;
+      try { fullUrl = href.startsWith('http') ? href : new URL(href, url).toString(); } catch(e) { return; }
+      if (fullUrl===url || href.startsWith('#') || href.startsWith('javascript') || href.startsWith('mailto:')) return;
+      if (items.some(function(it){ return it.url === fullUrl; })) return;
+      var hay = (text + ' ' + href).toLowerCase();
+      if (includeKw.length && !includeKw.some(function(k){ return hay.indexOf(k.trim())>=0; })) return;
+      if (excludeKw.some(function(k){ return hay.indexOf(k.trim())>=0; })) return;
+      var parent = $(this).parent();
+      var dateEl = parent.find('time').attr('datetime') || parent.find('[class*="date"]').text().trim() || '';
+      if (dateEl && !isWithinWindow(dateEl, windowDays)) return;
+      // Беремо контекст навколо посилання — щоб фільтр бачив грантові слова,
+      // навіть якщо вони в заголовку блоку поряд, а не в самому тексті посилання.
+      // (Виправляє джерела типу ІСАР Єднання де гранти відсіювались)
+      var ctxText = '';
+      try {
+        var pTxt = parent.text().replace(/\s+/g,' ').trim();
+        // Якщо батько містить більше тексту ніж саме посилання — це корисний контекст
+        if (pTxt.length > text.length + 10) ctxText = pTxt.slice(0, 400);
+        // Додатково підхоплюємо найближчий заголовок (h2/h3/h4) якщо є
+        var closeHdr = $(this).closest('article, .item, .post, li, .card, div').find('h1,h2,h3,h4').first().text().trim();
+        if (closeHdr && ctxText.indexOf(closeHdr) < 0) ctxText = (closeHdr + ' ' + ctxText).slice(0, 400);
+      } catch(e) {}
+      items.push({ title:text, url:fullUrl, description:ctxText, date:dateEl });
+    });
+    if (items.length >= 5) break;
+  }
+  return items;
+}
+
+// ══════ CORE SCANNER ══════
+async function scanSingle(sourceId, src, maxNew) {
+  maxNew = maxNew || 3;
+  var url = src.source_url || '';
+  var parser = (src.parser_mode || 'page_links').toLowerCase();
+  var windowDays = parseInt(src.scan_window_days) || 7;
+  var now = new Date().toISOString();
+  var raw = [];
+  // ДЕТАЛЬНА ТРАСА — кожен крок сканування з прикладами (для розгорнутого звіту)
+  var trace = [];
+  function step(name, data) { trace.push({ t: new Date().toISOString().slice(11,19), step: name, data: data || {} }); }
+  step('start', { url: url.slice(0,90), parser: parser, window_days: windowDays, max_new: maxNew });
+
+  var t0 = Date.now();
+  if (parser==='rss'||parser==='google_news_rss') raw = await parseRSS(url, 40, windowDays);
+  else if (parser==='telegram') raw = await parseTelegram(url, 40, windowDays);
+  else raw = await parsePageLinks(url, 40, src, windowDays);
+  var fetchMs = Date.now() - t0;
+
+  // Крок 1: сирий результат парсингу з прикладами заголовків
+  var rawStep = {
+    count: raw.length, fetch_ms: fetchMs,
+    samples: raw.slice(0,8).map(function(x){ return { title:(x.title||'').slice(0,70), has_url:!!x.url, has_date:!!x.date }; })
+  };
+  if (parser==='telegram') {
+    rawStep.tg_total_messages = raw._tg_total_messages || 0;
+    rawStep.tg_dropped_by_date = raw._tg_dropped_by_date || 0;
+    if (raw._tg_via_bridge) rawStep.tg_via_bridge = raw._tg_via_bridge;
+    if (raw._tg_via_proxy) rawStep.tg_via_proxy = raw._tg_via_proxy;
+  }
+  step('raw_parse', rawStep);
+
+  // Якщо сторінка дала мало — пробуємо мульти-грант парсинг
+  var isMulti = false;
+  if ((parser==='page_links') && raw.length < 3) {
+    var multi = await extractMultipleGrants(url);
+    if (multi && multi.length >= 3) { raw = multi; isMulti = true; }
+    step('multi_grant', { triggered: true, found: multi ? multi.length : 0, used: isMulti });
+  }
+
+  // Фільтр: грантові + не службові навігаційні
+  var nonUaDropped = 0;
+  var passed = 0;
+  var navSamples = [], filterSamples = [], passSamples = [];
+  var good = raw.filter(function(item) {
+    if (isNavWord(item.title)) { nonUaDropped++; if(navSamples.length<6) navSamples.push((item.title||'').slice(0,50)); return false; }
+    if (!passesFilter(item.title, item.description)) { if(filterSamples.length<8) filterSamples.push({ title:(item.title||'').slice(0,45), reason:filterReason(item.title, item.description) }); return false; }
+    passed++; if(passSamples.length<8) passSamples.push((item.title||'').slice(0,60)); return true;
+  });
+  step('filter', {
+    raw: raw.length, passed: passed,
+    nav_dropped: nonUaDropped, nav_samples: navSamples,
+    filter_dropped: (raw.length - nonUaDropped - passed), filter_samples: filterSamples,
+    passed_samples: passSamples
+  });
+
+  var created=0, dupes=0, detailed=0, skippedLimit=0;
+  var newSamples = [], dupeSamples = [];
+  for (var gi = 0; gi < good.length; gi++) {
+    var item = good[gi];
+    var norm = (item.title||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,200);
+    var dUrl = (item.url||'').toLowerCase().replace(/\/+$/,'');
+    // Перевірка дублів — для ВСІХ елементів (не виходимо рано)
+    var isDupe = false;
+    if (norm) { var e1 = await db.collection(COL.scanIdx).where('normalized_title','==',norm).limit(1).get(); if(!e1.empty) isDupe = true; }
+    if (!isDupe && dUrl) { var e2 = await db.collection(COL.scanIdx).where('canonical_url','==',dUrl).limit(1).get(); if(!e2.empty) isDupe = true; }
+    if (isDupe) { dupes++; if(dupeSamples.length<6) dupeSamples.push((item.title||'').slice(0,50)); continue; }
+    // Новий грант — але якщо вже досягли ліміту створення, рахуємо окремо
+    if (created >= maxNew) { skippedLimit++; continue; }
+    if (newSamples.length<8) newSamples.push((item.title||'').slice(0,60));
+
+    var cls = classify(item.title||'', item.description||'');
+    var fullText = '';
+    // Google News дає redirect-посилання (news.google.com/rss/articles/...),
+    // які при detail-fetch повертають 503 і валять усе джерело. Тому для
+    // google_news_rss НЕ робимо detail-fetch — заголовка+опису достатньо.
+    var isGoogleNews = (parser === 'google_news_rss') || (item.url || '').indexOf('news.google.com') >= 0;
+    if (item.url && String(src.fetch_details) !== 'false' && !isMulti && !isGoogleNews) {
+      fullText = await fetchDetailPage(item.url);
+      if (fullText && fullText.length > 100) {
+        detailed++;
+        var cls2 = classify(item.title||'', fullText);
+        if (!cls.donor && cls2.donor) cls.donor = cls2.donor;
+        if (!cls.deadline && cls2.deadline) cls.deadline = cls2.deadline;
+        if (!cls.amount_text && cls2.amount_text) cls.amount_text = cls2.amount_text;
+        if (!cls.topics && cls2.topics) cls.topics = cls2.topics;
+        if (cls2.topics && cls.topics && cls2.topics.split(',').length > cls.topics.split(',').length) cls.topics = cls2.topics;
+        if (!cls.applicants && cls2.applicants) cls.applicants = cls2.applicants;
+        if (!cls.geography && cls2.geography) cls.geography = cls2.geography;
+        if (cls2.auto_priority === 'high') cls.auto_priority = 'high';
+      }
+    }
+
+    var detId = 'det_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    await db.collection(COL.detected).doc(detId).set({
+      detected_id:detId, source_id:sourceId, source_name:src.source_name||'',
+      source_url:url, detail_url:item.url||'',
+      raw_title:item.title||'', normalized_title:norm,
+      short_desc:(item.description||'').slice(0,500),
+      full_desc: fullText ? fullText.slice(0,3000) : (item.description||''),
+      found_at:now, status:'Виявлено',
+      source_type:src.source_type||'',
+      donor: cls.donor || src.donor_hint || '',
+      deadline: cls.deadline || '',
+      amount_text: cls.amount_text || '',
+      topics: cls.topics || src.source_topics || '',
+      applicants: cls.applicants || src.applicants_hint || '',
+      geography: cls.geography || src.geography_hint || '',
+      auto_priority: cls.auto_priority || 'medium',
+      has_detail_page: fullText ? 'true' : 'false'
+    });
+    await db.collection(COL.scanIdx).add({
+      source_id:sourceId, canonical_url:dUrl, normalized_title:norm,
+      detected_id:detId, first_seen_at:now
+    });
+    created++;
+  }
+
+  var scanStatus = 'empty';
+  if (raw.length > 0 && good.length === 0) scanStatus = 'filtered';
+  else if (created > 0) scanStatus = 'ok_new';
+  else if (dupes > 0 || good.length > 0) scanStatus = 'ok_dupes';
+
+  // Фінальний крок траси + автоматичні попередження-підказки
+  step('result', { status: scanStatus, created: created, dupes: dupes, skipped_limit: skippedLimit, new_samples: newSamples, dupe_samples: dupeSamples });
+  var warnings = [];
+  if (raw.length === 0) {
+    if (parser === 'telegram') warnings.push('Канал порожній/приватний (web-preview недоступний). Спробувано RSS-міст. Перевір назву каналу.');
+    else if (parser.indexOf('rss') >= 0) warnings.push('RSS не повернув записів. Можливо всі старші за вікно (' + windowDays + ' днів) або фід порожній.');
+    else warnings.push('Сторінка не дала посилань. Можливо змінилась структура або потрібен інший URL.');
+  }
+  if (raw.length > 0 && passed === 0) warnings.push('Усі ' + raw.length + ' результатів відсіяно фільтром. Можливо фільтр занадто строгий, або це не грантовий контент.');
+  if (passed > 0 && created === 0 && dupes === passed) warnings.push('Усі ' + passed + ' пройдених — дублі (вже в базі). Це нормально якщо нових грантів немає.');
+  if (skippedLimit > 0) warnings.push('Пропущено ' + skippedLimit + ' нових через ліміт (' + maxNew + '/скан). Збільш item_limit якщо джерело багате.');
+  if (nonUaDropped > 0) warnings.push('Відсіяно ' + nonUaDropped + ' службових/навігаційних посилань.');
+
+  var cnt = parseInt(src.found_count)||0;
+  var histEntry = { at:now, status:scanStatus, raw:raw.length, passed:passed, new:created, dupes:dupes, non_ua:nonUaDropped, multi:isMulti, skipped_limit:skippedLimit, error:'' };
+
+  // Обʼєкт логу у форматі який очікує фронтенд (gf-sources.js → gf_scan_logs / last_scan_log)
+  var scanLog = {
+    source_id: sourceId,
+    source_name: src.source_name || '',
+    scanned_at: now,
+    scanned_at_iso: now,
+    status: scanStatus,
+    raw_found: raw.length,
+    passed: passed,
+    created: created,
+    dupes: dupes,
+    non_ua_dropped: nonUaDropped,
+    age_dropped: 0,
+    is_multi: isMulti,
+    http_status: '',
+    skipped_limit: skippedLimit,
+    fetch_ms: fetchMs,
+    diag_steps: trace,
+    diag_warnings: warnings
+  };
+
+  var upd = {
+    last_checked_at: now,
+    last_success_at: created > 0 ? now : (src.last_success_at||''),
+    found_count: cnt + created,
+    last_error: '',
+    last_error_code: '',
+    consecutive_fails: 0,
+    last_scan_status: scanStatus,
+    last_scan_raw: raw.length,
+    last_scan_passed: passed,
+    last_scan_new: created,
+    last_scan_dupes: dupes,
+    last_scan_at: now,
+    last_scan_log: scanLog
+  };
+  await db.collection(COL.sources).doc(sourceId).update(upd);
+
+  // ВАЖЛИВО: пишемо в окрему колекцію gf_scan_logs — саме звідти фронтенд
+  // читає звіт. Без цього звіт показує старі дати (баг "дати застрягли").
+  try {
+    await db.collection('gf_scan_logs').doc(sourceId).set(scanLog);
+  } catch(_) {}
+
+  var snap = await db.collection(COL.sources).doc(sourceId).get();
+  var dd = snap.data();
+  var hist = Array.isArray(dd.scan_history) ? dd.scan_history : [];
+  hist.unshift(histEntry);
+  if (hist.length > 30) hist = hist.slice(0, 30);
+  await db.collection(COL.sources).doc(sourceId).update({ scan_history: hist });
+
+  // Lifetime лічильник — росте при кожному новому гранті, ніколи не зменшується.
+  // Це "всього оброблено за весь період" — зберігається навіть після видалення detected.
+  if (created > 0) {
+    try {
+      await db.collection('gf_settings').doc('lifetime').set({
+        total_seen: admin.firestore.FieldValue.increment(created),
+        last_updated: now
+      }, { merge: true });
+    } catch(_) {}
+  }
+
+  return { sourceId:sourceId, checked:raw.length, passed:passed, created:created, dupes:dupes, detailed:detailed, isMulti:isMulti, skippedLimit:skippedLimit };
+}
+
+// ══════ ОБРОБКА ПОМИЛКИ СКАНУВАННЯ ══════
+async function handleScanError(docId, src, e) {
+  var now = new Date().toISOString();
+  var failCount = (parseInt(src.consecutive_fails) || 0) + 1;
+  // Код помилки
+  var errLabel = '';
+  if (e.code === 'ENOTFOUND' || e.code === 'EAI_AGAIN') errLabel = 'Домен не знайдено (DNS)';
+  else if (e.code === 'ECONNREFUSED') errLabel = "З'єднання відхилено";
+  else if (e.code === 'EHOSTUNREACH') errLabel = 'Хост недоступний';
+  else if (e.type === 'aborted' || /timeout/i.test(e.message)) errLabel = 'Таймаут';
+  else if (/HTTP 403/.test(e.message)) errLabel = 'Доступ заборонено (403)';
+  else if (/HTTP 404/.test(e.message)) errLabel = 'Не знайдено (404)';
+  else if (/HTTP 503/.test(e.message)) errLabel = 'Сервіс недоступний (503)';
+
+  var histEntry = { at:now, status:'error', raw:0, passed:0, new:0, dupes:0, error:(errLabel||'')+' '+e.message.slice(0,150) };
+  var errLog = {
+    source_id: docId,
+    source_name: src.source_name || '',
+    scanned_at: now,
+    scanned_at_iso: now,
+    status: 'error',
+    raw_found: 0, passed: 0, created: 0, dupes: 0,
+    non_ua_dropped: 0, age_dropped: 0,
+    http_status: '',
+    error: (errLabel ? errLabel + ': ' : '') + e.message.slice(0, 200),
+    error_code: e.code || '',
+    error_label: errLabel || '',
+    diag_steps: [], diag_warnings: []
+  };
+  var upd = {
+    last_checked_at: now,
+    last_error: (errLabel ? errLabel + ': ' : '') + e.message.slice(0, 400),
+    last_error_code: e.code || '',
+    last_error_label: errLabel || '',
+    last_scan_status: 'error',
+    last_scan_raw: 0, last_scan_new: 0, last_scan_dupes: 0,
+    consecutive_fails: failCount,
+    last_scan_log: errLog
+  };
+  // DNS-помилки (домен не існує) — пауза одразу після 3 спроб
+  var dnsErr = (e.code === 'ENOTFOUND' || e.code === 'EAI_AGAIN');
+  var pauseThreshold = dnsErr ? 3 : MAX_FAILS_BEFORE_PAUSE;
+  if (failCount >= pauseThreshold) {
+    upd.source_status = 'paused';
+    upd.pause_reason = 'Авто-пауза: ' + failCount + ' помилок поспіль. ' + (errLabel || e.message.slice(0,80));
+  }
+  await db.collection(COL.sources).doc(docId).update(upd);
+  // Пишемо помилку в gf_scan_logs (звіт читає звідти)
+  try { await db.collection('gf_scan_logs').doc(docId).set(errLog); } catch(_) {}
+  var snap2 = await db.collection(COL.sources).doc(docId).get();
+  var d2 = snap2.data();
+  var hist = Array.isArray(d2.scan_history) ? d2.scan_history : [];
+  hist.unshift(histEntry);
+  if (hist.length > 30) hist = hist.slice(0, 30);
+  await db.collection(COL.sources).doc(docId).update({ scan_history: hist });
+}
+
+// ══════════════════════════════════════════════════════════════
+// EXPORTS — всі 8 функцій
+// ══════════════════════════════════════════════════════════════
+
+// 1. Scheduled — кожну хвилину, сканує ПАКЕТ джерел за раз
+exports.scanScheduled = functions
+  .runWith({ timeoutSeconds: 300, memory: '512MB' })
+  .pubsub
+  .schedule('every 1 minutes')
+  .timeZone('Europe/Kyiv')
+  .onRun(async () => {
+    // БЕЗ orderBy щоб не залежати від композитного індексу Firestore
+    var snap = await db.collection(COL.sources)
+      .where('source_status','==','active')
+      .get();
+    if (snap.empty) { console.log('SCHED: No active sources'); return null; }
+    var now = Date.now();
+    // Сортуємо в пам'яті за давністю перевірки (найстаріші перші)
+    var docsSorted = snap.docs.slice().sort(function(a, b) {
+      var ta = a.data().last_checked_at ? new Date(a.data().last_checked_at).getTime() : 0;
+      var tb = b.data().last_checked_at ? new Date(b.data().last_checked_at).getTime() : 0;
+      return ta - tb;
+    });
+    // Збираємо всі джерела що "due" (час прийшов)
+    var due = [];
+    for (var i = 0; i < docsSorted.length; i++) {
+      var s = docsSorted[i].data();
+      var intervalMin = parseInt(s.scan_interval_min) || 1;
+      var lastMs = s.last_checked_at ? new Date(s.last_checked_at).getTime() : 0;
+      if ((now - lastMs) / 60000 >= intervalMin) due.push(docsSorted[i]);
+    }
+    console.log('SCHED: active=' + snap.size + ' due=' + due.length);
+    if (due.length === 0) { console.log('SCHED: nothing due'); return null; }
+    // Сканимо до 8 джерел за виклик (щоб вкластись у таймаут)
+    var BATCH = 8;
+    var processed = 0, created = 0, errors = 0;
+    for (var j = 0; j < due.length && j < BATCH; j++) {
+      var doc = due[j];
+      var src = doc.data();
+      try {
+        var r = await scanSingle(doc.id, src, 3);
+        processed++; created += (r.created || 0);
+        console.log('SCHED ok: ' + (src.source_name || doc.id) + ' raw=' + r.checked + ' new=' + r.created + ' dup=' + r.dupes);
+      } catch (e) {
+        errors++;
+        console.error('SCHED err: ' + (src.source_name || doc.id) + ' — ' + e.message);
+        try { await handleScanError(doc.id, src, e); } catch(_){}
+      }
+    }
+    console.log('SCHED done: processed=' + processed + ' created=' + created + ' errors=' + errors);
+    return null;
+  });
+
+// 2. HTTP: Scan one source (ручне сканування з UI)
+exports.scanSource = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin','*');
+  res.set('Access-Control-Allow-Methods','POST,OPTIONS');
+  res.set('Access-Control-Allow-Headers','Content-Type');
+  if (req.method==='OPTIONS') return res.status(204).send('');
+  try {
+    var sourceId = (req.body || {}).sourceId;
+    if (!sourceId) return res.status(400).json({ error:'sourceId required' });
+    var srcDoc = await db.collection(COL.sources).doc(sourceId).get();
+    if (!srcDoc.exists) return res.status(404).json({ error:'Source not found' });
+    try {
+      var result = await scanSingle(sourceId, srcDoc.data(), 10);
+      res.json(result);
+    } catch(scanErr) {
+      await handleScanError(sourceId, srcDoc.data(), scanErr);
+      res.status(200).json({ error: scanErr.message, sourceId: sourceId, created: 0 });
+    }
+  } catch(e) {
+    console.error('scanSource error:', e);
+    res.status(500).json({ error:e.message });
+  }
+});
+
+// 3. HTTP: Scan all active sources
+exports.scanAll = functions
+  .runWith({ timeoutSeconds:540, memory:'1GB' })
+  .https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin','*');
+    res.set('Access-Control-Allow-Methods','POST,GET,OPTIONS');
+    res.set('Access-Control-Allow-Headers','Content-Type');
+    if (req.method==='OPTIONS') return res.status(204).send('');
+    try {
+      var snap = await db.collection(COL.sources).where('source_status','==','active').get();
+      var processed=0, created=0, errors=0;
+      for (var i = 0; i < snap.docs.length; i++) {
+        var doc = snap.docs[i];
+        try { var r = await scanSingle(doc.id, doc.data(), 5); processed++; created += r.created||0; }
+        catch(e) { errors++; try { await handleScanError(doc.id, doc.data(), e); } catch(_){} }
+      }
+      res.json({ processed:processed, created:created, errors:errors, total:snap.size });
+    } catch(e) { res.status(500).json({ error:e.message }); }
+  });
+
+// 4. HTTP: Відхилити запис
+exports.rejectDetected = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin','*');
+  res.set('Access-Control-Allow-Methods','POST,OPTIONS');
+  res.set('Access-Control-Allow-Headers','Content-Type');
+  if (req.method==='OPTIONS') return res.status(204).send('');
+  try {
+    var body = req.body || {};
+    var detectedId = body.detectedId, reason = body.reason;
+    if (!detectedId) return res.status(400).json({ error:'detectedId required' });
+    await db.collection(COL.detected).doc(detectedId).update({
+      status: 'Відхилено',
+      rejection_reason: reason || 'other',
+      rejected_at: new Date().toISOString()
+    });
+    res.json({ ok:true, detectedId:detectedId, reason:reason||'other' });
+  } catch(e) {
+    console.error('rejectDetected error:', e);
+    res.status(500).json({ error:e.message });
+  }
+});
+
+// 5. HTTP: Очистити логи сканування джерела
+exports.clearScanLogs = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin','*');
+  res.set('Access-Control-Allow-Methods','POST,OPTIONS');
+  res.set('Access-Control-Allow-Headers','Content-Type');
+  if (req.method==='OPTIONS') return res.status(204).send('');
+  try {
+    var body = req.body || {};
+    // Масове очищення (кнопка "Очистити звіт") — all:true
+    if (body.all === true) {
+      var allSnap = await db.collection(COL.sources).get();
+      var cleared = 0;
+      var batch = db.batch();
+      var opCount = 0;
+      for (var i = 0; i < allSnap.docs.length; i++) {
+        batch.update(allSnap.docs[i].ref, { scan_history: [], last_error: '', consecutive_fails: 0 });
+        cleared++; opCount++;
+        // Firestore batch ліміт 500 операцій
+        if (opCount >= 450) { await batch.commit(); batch = db.batch(); opCount = 0; }
+      }
+      if (opCount > 0) await batch.commit();
+      return res.json({ ok:true, reset_sources: cleared, deleted_logs: cleared });
+    }
+    var sourceId = body.sourceId;
+    if (!sourceId) return res.status(400).json({ error:'sourceId or all required' });
+    await db.collection(COL.sources).doc(sourceId).update({
+      scan_history: [], last_error: '', consecutive_fails: 0
+    });
+    res.json({ ok:true, sourceId:sourceId, reset_sources: 1, deleted_logs: 1 });
+  } catch(e) {
+    console.error('clearScanLogs error:', e);
+    res.status(500).json({ error:e.message });
+  }
+});
+
+// 6. HTTP: Health check
+exports.healthCheck = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin','*');
+  try {
+    var snap = await db.collection(COL.sources).where('source_status','==','active').get();
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.6' });
+  } catch(e) { res.status(500).json({ error:e.message }); }
+});
+
+// 6a. HTTP: Виправлення адрес Telegram-каналів + додавання нових джерел.
+// Викликати ОДИН РАЗ після деплою: .../fixSources
+// - Виправляє неправильні URL (ГУРТ, УКФ, Простір — перевірено через веб)
+// - Додає нові робочі грантові джерела
+// - Ставить на паузу мертві джерела (DNS-помилки)
+exports.fixSources = functions
+  .runWith({ timeoutSeconds: 120, memory: '256MB' })
+  .https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin','*');
+    res.set('Access-Control-Allow-Methods','POST,GET,OPTIONS');
+    res.set('Access-Control-Allow-Headers','Content-Type');
+    if (req.method==='OPTIONS') return res.status(204).send('');
+    try {
+      var result = { fixed_urls: [], added: [], paused_dead: [], reactivated: [] };
+
+      // 1. ВИПРАВЛЕННЯ неправильних URL (перевірено через веб 16-22.06.2026)
+      var urlFixes = {
+        'tg_gurtrc':    'https://t.me/s/gurtrc',      // було gaborets (без preview)
+        'tg_ukf_ua':    'https://t.me/s/UCF_ua',      // було ukf_ua (без preview)
+        'tg_prostirua': 'https://t.me/s/prostirua',   // було prostir_ua (чужий військовий канал!)
+        'grant_av':     'https://grant-av.com.ua/grants/',  // переїхав з grant.av.ua (мертвий)
+        'getgrant_page':'https://getgrant.ua/',       // старий getgrant.com.ua мертвий
+        // Виправлення мертвих page-URL на РОБОЧІ (перевірено через веб 24.06):
+        'undp_ukraine':   'https://www.undp.org/ukraine/grants-and-opportunities', // було /grants (404)
+        'house_of_europe':'https://houseofeurope.org.ua/en',  // надійніша версія (дедлайни 2026)
+        'opensociety_ua': 'https://www.irf.ua/grants/contests/', // було /grants (404)
+        'mindev_gov':     'https://mindev.gov.ua/news/' // resursy-dlia-hromad дає 403
+      };
+      for (var fid in urlFixes) {
+        try {
+          var fdoc = await db.collection(COL.sources).doc(fid).get();
+          if (fdoc.exists) {
+            await db.collection(COL.sources).doc(fid).update({
+              source_url: urlFixes[fid],
+              source_status: 'active',
+              consecutive_fails: 0,
+              last_error: '',
+              pause_reason: ''
+            });
+            result.fixed_urls.push(fid + ' → ' + urlFixes[fid]);
+          }
+        } catch(e) { /* пропуск */ }
+      }
+
+      // 2. ПАУЗА остаточно мертвих джерел (404/DNS — сторінки видалені назавжди)
+      var deadIds = ['mercy_corps_ua','irex_ukraine','britishcouncil_ua','british_council_ua',
+                     'devex_ukraine','diia_business','gurt_rss',
+                     'reliefweb_funding','reliefweb_ukraine','hromadskyi_prostir',
+                     'src_1775119984371','src_1775040621159','prostir_feed','fundsforngos_ukraine'];
+      for (var di = 0; di < deadIds.length; di++) {
+        try {
+          var ddoc = await db.collection(COL.sources).doc(deadIds[di]).get();
+          if (ddoc.exists && ddoc.data().source_status === 'active') {
+            await db.collection(COL.sources).doc(deadIds[di]).update({
+              source_status: 'paused',
+              pause_reason: 'Авто-пауза: джерело недоступне (мертвий домен/404)'
+            });
+            result.paused_dead.push(deadIds[di]);
+          }
+        } catch(e) { /* пропуск */ }
+      }
+
+      // 3. РЕАКТИВАЦІЯ Google News (503 виправлено в v6.1 — detail-fetch вимкнено)
+      var reactivateIds = ['google_news_grants_ua','google_news_grants_hromady',
+                           'google_news_vidnovlennia','google_news_veteran_grants',
+                           'google_news_konkursy','google_news_business_grants'];
+      for (var ri = 0; ri < reactivateIds.length; ri++) {
+        try {
+          var rdoc = await db.collection(COL.sources).doc(reactivateIds[ri]).get();
+          if (rdoc.exists && rdoc.data().source_status === 'paused') {
+            await db.collection(COL.sources).doc(reactivateIds[ri]).update({
+              source_status: 'active', consecutive_fails: 0, last_error: '', pause_reason: ''
+            });
+            result.reactivated.push(reactivateIds[ri]);
+          }
+        } catch(e) { /* пропуск */ }
+      }
+
+      // 4. ДОДАВАННЯ нових джерел (тільки перевірені робочі).
+      // page-версії ГУРТ і Простір — надійніші за TG (мають дату публікації).
+      var newSources = [
+        { id:'prostir_grants_page', source_name:'Простір — гранти (сторінка)', source_url:'https://www.prostir.ua/category/grants/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:14, item_limit:20, scan_interval_min:120 },
+        { id:'gurt_grants_page', source_name:'ГУРТ — гранти (сторінка)', source_url:'https://gurt.org.ua/news/grants/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:14, item_limit:20, scan_interval_min:120 },
+        // НОВІ перевірені джерела (живі, гранти 2026 — перевірено через веб 22.06)
+        { id:'chaszmin_grants', source_name:'Час Змін — гранти 2026', source_url:'https://chaszmin.com.ua/granty-2026/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:21, item_limit:30, scan_interval_min:120 },
+        { id:'chaszmin_tut', source_name:'Час Змін — Гранти тут', source_url:'https://chaszmin.com.ua/category/granty-tut/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:21, item_limit:30, scan_interval_min:150 },
+        { id:'grant_av_new', source_name:'Грант АВ (новий домен)', source_url:'https://grant-av.com.ua/grants/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:21, item_limit:30, scan_interval_min:120 },
+        { id:'getgrant_go', source_name:'GetGrant — гранти для ГО', source_url:'https://getgrant.ua/granty-dlia-hromadskykh-orhanizatsii-ukraina-2026/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'medium', scan_window_days:30, item_limit:25, scan_interval_min:180 },
+        { id:'decentralization', source_name:'Децентралізація — можливості', source_url:'https://decentralization.ua/news',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'medium', scan_window_days:21, item_limit:20, scan_interval_min:180 },
+        { id:'irf_contests_new', source_name:'МФ Відродження — конкурси', source_url:'https://www.irf.ua/grants/contests/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:30, item_limit:25, scan_interval_min:150 },
+        { id:'ulead_news', source_name:'U-LEAD — новини/гранти', source_url:'https://u-lead.org.ua/news',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'medium', scan_window_days:21, item_limit:20, scan_interval_min:180 },
+        // Додаткові перевірені page-джерела (свіжі гранти 2026, перевірено 24.06)
+        { id:'ednannia_contests', source_name:'ІСАР Єднання — конкурси', source_url:'https://ednannia.ua/tryvaiut-hrantovi-konkursy',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:30, item_limit:25, scan_interval_min:150 },
+        { id:'grant_av_gromada', source_name:'Грант АВ — громадський сектор', source_url:'https://grant-av.com.ua/grants/hromadskyj-sektor/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:30, item_limit:25, scan_interval_min:150 },
+        { id:'uyf_news', source_name:'Молодіжний фонд — можливості', source_url:'https://uyf.gov.ua/news',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'medium', scan_window_days:30, item_limit:20, scan_interval_min:180 },
+        // GetGrant grants-and-funding — потужний АГРЕГАТОР (збирає House of Europe,
+        // UNDP, ІСАР, Дія, Відродження в одному місці — page, надійно)
+        { id:'getgrant_funding', source_name:'GetGrant — всі гранти (агрегатор)', source_url:'https://getgrant.ua/grants-and-funding/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:30, item_limit:30, scan_interval_min:120 },
+        { id:'houseofeurope_grants', source_name:'House of Europe — гранти', source_url:'https://houseofeurope.org.ua/grant',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:30, item_limit:25, scan_interval_min:150 }
+      ];
+      for (var ni = 0; ni < newSources.length; ni++) {
+        var ns = newSources[ni];
+        try {
+          var exist = await db.collection(COL.sources).doc(ns.id).get();
+          if (!exist.exists) {
+            ns.found_count = 0; ns.created_at = new Date().toISOString();
+            ns.scan_history = []; ns.consecutive_fails = 0; ns.last_error = '';
+            await db.collection(COL.sources).doc(ns.id).set(ns);
+            result.added.push(ns.id + ' (' + ns.source_name + ')');
+          }
+        } catch(e) { /* пропуск */ }
+      }
+
+      res.json({
+        ok: true,
+        summary: {
+          urls_fixed: result.fixed_urls.length,
+          sources_added: result.added.length,
+          dead_paused: result.paused_dead.length,
+          google_news_reactivated: result.reactivated.length
+        },
+        details: result,
+        note: 'Готово. Виправлено адреси, додано нові джерела, реактивовано Google News, призупинено мертві. Дай сканеру 10-15 хв.',
+        time: new Date().toISOString()
+      });
+    } catch(e) {
+      console.error('fixSources error:', e);
+      res.status(500).json({ error:e.message });
+    }
+  });
+
+// 6b. HTTP: Розгорнута діагностика одного джерела (БЕЗ запису в базу)
+// Показує сирі дані ДО і ПІСЛЯ кожного етапу — щоб бачити ЧОМУ мало результатів.
+// Виклик: .../scanDebug?sourceId=XXX
+exports.scanDebug = functions
+  .runWith({ timeoutSeconds: 120, memory: '512MB' })
+  .https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin','*');
+    res.set('Access-Control-Allow-Methods','POST,GET,OPTIONS');
+    res.set('Access-Control-Allow-Headers','Content-Type');
+    if (req.method==='OPTIONS') return res.status(204).send('');
+    try {
+      var sourceId = (req.query && req.query.sourceId) || (req.body && req.body.sourceId);
+      if (!sourceId) return res.status(400).json({ error:'sourceId required (?sourceId=XXX)' });
+      var srcDoc = await db.collection(COL.sources).doc(sourceId).get();
+      if (!srcDoc.exists) return res.status(404).json({ error:'Source not found' });
+      var src = srcDoc.data();
+      var url = src.source_url || '';
+      var parser = (src.parser_mode || 'page_links').toLowerCase();
+      var windowDays = parseInt(src.scan_window_days) || 7;
+      var dbg = { source_name: src.source_name, source_id: sourceId, url: url, parser: parser, window_days: windowDays, status: src.source_status, steps: {} };
+
+      var raw = [];
+      try {
+        if (parser==='rss'||parser==='google_news_rss') raw = await parseRSS(url, 40, windowDays);
+        else if (parser==='telegram') raw = await parseTelegram(url, 40, windowDays);
+        else raw = await parsePageLinks(url, 40, src, windowDays);
+        var step1 = { count: raw.length, samples: raw.slice(0,10).map(function(x){ return { title:(x.title||'').slice(0,80), url:(x.url||'').slice(0,80), has_date:!!x.date }; }) };
+        // Telegram-специфічна діагностика
+        if (parser==='telegram') {
+          step1.tg_total_messages = raw._tg_total_messages || 0;
+          step1.tg_dropped_by_date = raw._tg_dropped_by_date || 0;
+          if (raw._tg_via_bridge) step1.tg_via_bridge = raw._tg_via_bridge;
+          if ((raw._tg_total_messages || 0) === 0) step1.tg_hint = 'Канал порожній або приватний (web-preview недоступний). Спробувано RSS-міст. Перевір назву каналу.';
+          else if (raw.length === 0 && (raw._tg_dropped_by_date||0) > 0) step1.tg_hint = 'Всі пости старші за вікно (' + windowDays + ' днів).';
+        }
+        dbg.steps['1_raw_parse'] = step1;
+      } catch(e) {
+        dbg.steps['1_raw_parse'] = { error: e.message, code: e.code || '' };
+        return res.json(dbg);
+      }
+
+      var isMulti = false;
+      if (parser==='page_links' && raw.length < 3) {
+        try {
+          var multi = await extractMultipleGrants(url);
+          if (multi && multi.length >= 3) { raw = multi; isMulti = true; }
+          dbg.steps['2_multi_grant'] = { triggered:true, found: multi ? multi.length : 0, used: isMulti };
+        } catch(e) { dbg.steps['2_multi_grant'] = { triggered:true, error: e.message }; }
+      } else {
+        dbg.steps['2_multi_grant'] = { triggered:false, reason: parser!=='page_links' ? 'not a page' : 'enough raw items' };
+      }
+
+      var navDropped = [], filterDropped = [], passedItems = [];
+      raw.forEach(function(item) {
+        if (isNavWord(item.title)) { navDropped.push((item.title||'').slice(0,60)); return; }
+        if (!passesFilter(item.title, item.description)) { filterDropped.push((item.title||'').slice(0,60)); return; }
+        passedItems.push(item);
+      });
+      dbg.steps['3_filter'] = {
+        passed: passedItems.length,
+        nav_dropped: navDropped.length, nav_samples: navDropped.slice(0,8),
+        filter_dropped: filterDropped.length, filter_samples: filterDropped.slice(0,8),
+        passed_samples: passedItems.slice(0,10).map(function(x){ return (x.title||'').slice(0,70); })
+      };
+
+      var newItems = [], dupeItems = [];
+      for (var i = 0; i < passedItems.length; i++) {
+        var item = passedItems[i];
+        var norm = (item.title||'').toLowerCase().replace(/\s+/g,' ').trim().slice(0,200);
+        var dUrl = (item.url||'').toLowerCase().replace(/\/+$/,'');
+        var isDupe = false;
+        if (norm) { var e1 = await db.collection(COL.scanIdx).where('normalized_title','==',norm).limit(1).get(); if(!e1.empty) isDupe = true; }
+        if (!isDupe && dUrl) { var e2 = await db.collection(COL.scanIdx).where('canonical_url','==',dUrl).limit(1).get(); if(!e2.empty) isDupe = true; }
+        if (isDupe) dupeItems.push((item.title||'').slice(0,60));
+        else newItems.push((item.title||'').slice(0,60));
+      }
+      dbg.steps['4_dedup'] = { new: newItems.length, new_samples: newItems.slice(0,10), dupes: dupeItems.length, dupe_samples: dupeItems.slice(0,8) };
+
+      dbg.summary = {
+        raw: raw.length, after_filter: passedItems.length, would_create: newItems.length,
+        verdict: newItems.length > 0 ? ('Знайде ' + newItems.length + ' нових') :
+                 (raw.length === 0 ? 'Джерело повертає 0 (порожньо/блок)' :
+                 (passedItems.length === 0 ? 'Все відсіяно фільтром' : 'Все дублі (нових немає)'))
+      };
+      res.json(dbg);
+    } catch(e) {
+      console.error('scanDebug error:', e);
+      res.status(500).json({ error:e.message, stack:(e.stack||'').slice(0,300) });
+    }
+  });
+
+// 6c. HTTP: Загальна статистика бази (скільки всього грантів, по статусах)
+// Виклик: .../stats
+exports.stats = functions
+  .runWith({ timeoutSeconds: 120, memory: '512MB' })
+  .https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin','*');
+    try {
+      // Рахуємо detected батчами
+      var total = 0, byStatus = {}, last = null;
+      while (true) {
+        var q = db.collection(COL.detected).orderBy('detected_id').limit(500);
+        if (last) q = q.startAfter(last);
+        var snap = await q.get();
+        snap.docs.forEach(function(d) {
+          total++;
+          var st = d.data().status || 'Невідомо';
+          byStatus[st] = (byStatus[st] || 0) + 1;
+        });
+        if (snap.docs.length < 500) break;
+        last = snap.docs[snap.docs.length - 1].data().detected_id;
+      }
+      // Скільки в scan_index (кеш дедуплікації)
+      var idxTotal = 0, idxLast = null;
+      while (true) {
+        var qi = db.collection(COL.scanIdx).orderBy('detected_id').limit(500);
+        if (idxLast) qi = qi.startAfter(idxLast);
+        var si = await qi.get();
+        idxTotal += si.size;
+        if (si.docs.length < 500) break;
+        idxLast = si.docs[si.docs.length - 1].data().detected_id;
+      }
+      // Активні джерела
+      var srcSnap = await db.collection(COL.sources).where('source_status','==','active').get();
+      // Lifetime статистика (всього оброблено за весь період)
+      var lifeSnap = await db.collection('gf_settings').doc('lifetime').get();
+      var lifetime = lifeSnap.exists ? lifeSnap.data() : { total_seen: 0 };
+      res.json({
+        ok: true,
+        detected_total: total,
+        by_status: byStatus,
+        scan_index_size: idxTotal,
+        active_sources: srcSnap.size,
+        lifetime_total_seen: lifetime.total_seen || 0,
+        lifetime_updated: lifetime.last_updated || '',
+        time: new Date().toISOString()
+      });
+    } catch(e) {
+      console.error('stats error:', e);
+      res.status(500).json({ error:e.message });
+    }
+  });
+
+// Текстовий звіт здоровʼя джерел (для завантаження .txt)
+function renderHealthText(p) {
+  var L = [];
+  var d = new Date(p.generated_at);
+  L.push('═══════════════════════════════════════════════════════');
+  L.push('         ЗВІТ ЗДОРОВ\'Я ДЖЕРЕЛ — GRANTFLOW');
+  L.push('═══════════════════════════════════════════════════════');
+  L.push('Згенеровано: ' + d.toLocaleString('uk-UA'));
+  L.push('');
+  L.push('── ПІДСУМОК ──');
+  L.push('Всього джерел     : ' + p.summary.total_sources);
+  L.push('✅ Продуктивні     : ' + p.summary.productive + ' (дали нові гранти)');
+  L.push('🔁 Тільки дублі    : ' + p.summary.dupes_only);
+  L.push('⬜ Порожні         : ' + p.summary.empty);
+  L.push('🔻 Відсіяно фільтром: ' + p.summary.filtered);
+  L.push('🔴 З помилками      : ' + p.summary.errored);
+  L.push('⏸  На паузі         : ' + p.summary.paused);
+  L.push('');
+  L.push('── РЕКОМЕНДАЦІЇ ──');
+  p.recommendations.forEach(function(r){ L.push('  ' + r); });
+  L.push('');
+  L.push('── ✅ ПРОДУКТИВНІ (нові гранти) ──');
+  p.productive_sources.forEach(function(s){ L.push('  ' + s.name + ' [' + s.type + '] — нових:' + s.new + ' (знайдено:' + s.raw + ')'); });
+  L.push('');
+  L.push('── 🔻 ВІДСІЯНО ФІЛЬТРОМ ──');
+  p.filtered_sources.forEach(function(s){ L.push('  ' + s.name + ' [' + s.type + '] — знайдено:' + s.raw + ', все відсіяно'); });
+  L.push('');
+  L.push('── ⬜ ПОРОЖНІ (0 результатів) ──');
+  p.empty_sources.forEach(function(s){ L.push('  ' + s.name + ' [' + s.type + '] — ' + (s.url||'')); });
+  L.push('');
+  L.push('── 🔴 З ПОМИЛКАМИ ──');
+  p.errored_sources.forEach(function(s){ L.push('  ' + s.name + ' — ' + (s.error||'')); });
+  L.push('');
+  L.push('── ⏸ НА ПАУЗІ ──');
+  p.paused_sources.forEach(function(s){ L.push('  ' + s.name + ' — ' + (s.pause_reason||'')); });
+  L.push('');
+  L.push('── 📊 ТОП-10 ЗА ВЕСЬ ЧАС ──');
+  p.top_all_time.forEach(function(s, i){ L.push('  ' + (i+1) + '. ' + s.name + ' — ' + s.total); });
+  L.push('');
+  L.push('═══════════════════════════════════════════════════════');
+  return L.join('\n');
+}
+
+// HTML-звіт здоровʼя джерел (гарна сторінка + кнопки Завантажити/Копіювати)
+function renderHealthHtml(p) {
+  var txt = renderHealthText(p).replace(/`/g, '\\`').replace(/\$/g, '\\$');
+  function rows(arr, cols) {
+    return arr.map(function(s){
+      return '<tr>' + cols.map(function(c){ return '<td>' + String(s[c.k] != null ? s[c.k] : '').replace(/</g,'&lt;') + '</td>'; }).join('') + '</tr>';
+    }).join('');
+  }
+  var d = new Date(p.generated_at);
+  var sm = p.summary;
+  var recHtml = p.recommendations.map(function(r){ return '<li>' + r.replace(/</g,'&lt;') + '</li>'; }).join('');
+  return '<!DOCTYPE html><html lang="uk"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<title>Здоров\'я джерел — GrantFlow</title><style>' +
+    'body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#0b0f1a;color:#e6edf7;margin:0;padding:20px;}' +
+    '.wrap{max-width:1000px;margin:0 auto;}' +
+    'h1{font-size:22px;margin:0 0 4px;}.sub{color:#8aa0bd;font-size:13px;margin-bottom:16px;}' +
+    '.cards{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;}' +
+    '.card{background:#141b2d;border:1px solid #1f2b45;border-radius:10px;padding:12px 16px;min-width:90px;}' +
+    '.card .n{font-size:24px;font-weight:700;}.card .l{font-size:11px;color:#8aa0bd;margin-top:2px;}' +
+    '.green .n{color:#4ade80;}.red .n{color:#f87171;}.yellow .n{color:#fbbf24;}.gray .n{color:#94a3b8;}' +
+    '.btns{display:flex;gap:10px;margin-bottom:20px;}' +
+    'button{background:#4f6ef7;color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:14px;cursor:pointer;}' +
+    'button:hover{background:#3f5ae0;}button.sec{background:#1f2b45;}' +
+    'h2{font-size:16px;margin:20px 0 8px;border-bottom:1px solid #1f2b45;padding-bottom:6px;}' +
+    'table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px;}' +
+    'td{padding:6px 8px;border-bottom:1px solid #161f33;}tr:hover td{background:#121a2b;}' +
+    'ul.rec{background:#141b2d;border:1px solid #1f2b45;border-radius:10px;padding:14px 14px 14px 32px;line-height:1.7;}' +
+    '.tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;}' +
+    '</style></head><body><div class="wrap">' +
+    '<h1>🩺 Здоров\'я джерел — GrantFlow</h1>' +
+    '<div class="sub">Згенеровано: ' + d.toLocaleString('uk-UA') + '</div>' +
+    '<div class="cards">' +
+    '<div class="card"><div class="n">' + sm.total_sources + '</div><div class="l">Всього</div></div>' +
+    '<div class="card green"><div class="n">' + sm.productive + '</div><div class="l">Продуктивні</div></div>' +
+    '<div class="card gray"><div class="n">' + sm.dupes_only + '</div><div class="l">Тільки дублі</div></div>' +
+    '<div class="card gray"><div class="n">' + sm.empty + '</div><div class="l">Порожні</div></div>' +
+    '<div class="card yellow"><div class="n">' + sm.filtered + '</div><div class="l">Фільтр</div></div>' +
+    '<div class="card red"><div class="n">' + sm.errored + '</div><div class="l">Помилки</div></div>' +
+    '<div class="card gray"><div class="n">' + sm.paused + '</div><div class="l">Пауза</div></div>' +
+    '</div>' +
+    '<div class="btns">' +
+    '<button onclick="dl()">⬇ Завантажити TXT</button>' +
+    '<button class="sec" onclick="cp()">📋 Копіювати все</button>' +
+    '<button class="sec" onclick="location.reload()">🔄 Оновити</button>' +
+    '</div>' +
+    '<ul class="rec">' + recHtml + '</ul>' +
+    '<h2>✅ Продуктивні (' + p.productive_sources.length + ')</h2><table>' + rows(p.productive_sources, [{k:'name'},{k:'type'},{k:'new'},{k:'raw'}]) + '</table>' +
+    '<h2>🔻 Відсіяно фільтром (' + p.filtered_sources.length + ')</h2><table>' + rows(p.filtered_sources, [{k:'name'},{k:'type'},{k:'raw'}]) + '</table>' +
+    '<h2>⬜ Порожні (' + p.empty_sources.length + ')</h2><table>' + rows(p.empty_sources, [{k:'name'},{k:'type'},{k:'url'}]) + '</table>' +
+    '<h2>🔴 З помилками (' + p.errored_sources.length + ')</h2><table>' + rows(p.errored_sources, [{k:'name'},{k:'error'}]) + '</table>' +
+    '<h2>⏸ На паузі (' + p.paused_sources.length + ')</h2><table>' + rows(p.paused_sources, [{k:'name'},{k:'pause_reason'}]) + '</table>' +
+    '<h2>📊 Топ-10 за весь час</h2><table>' + rows(p.top_all_time, [{k:'name'},{k:'total'}]) + '</table>' +
+    '</div><script>' +
+    'var REPORT=`' + txt + '`;' +
+    'function dl(){var b=new Blob([REPORT],{type:"text/plain;charset=utf-8"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="source-health-"+new Date().toISOString().slice(0,10)+".txt";a.click();}' +
+    'function cp(){navigator.clipboard.writeText(REPORT).then(function(){alert("Звіт скопійовано!");});}' +
+    '</script></body></html>';
+}
+
+// 6c2. HTTP: Аналітика здоровʼя всіх джерел + рекомендації.
+// Виклик: .../sourceHealth
+// Дає повну картину: продуктивні/мертві джерела, де фільтр ріже,
+// які на паузі, рекомендації що виправити.
+exports.sourceHealth = functions
+  .runWith({ timeoutSeconds: 120, memory: '256MB' })
+  .https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin','*');
+    try {
+      var snap = await db.collection(COL.sources).get();
+      var sources = [];
+      snap.forEach(function(doc){ var d = doc.data(); d._id = doc.id; sources.push(d); });
+
+      var productive = [];   // дають нові гранти
+      var dupesOnly = [];    // тільки дублі (working але без нових)
+      var empty = [];        // 0 результатів
+      var filtered = [];     // знаходять, але все відсіюється
+      var errored = [];      // помилки
+      var paused = [];       // на паузі
+
+      sources.forEach(function(s){
+        var st = s.last_scan_status || '';
+        var name = s.source_name || s._id;
+        var info = {
+          name: name, id: s._id, type: s.source_type || '',
+          status: st, raw: s.last_scan_raw || 0, new: s.last_scan_new || 0,
+          dupes: s.last_scan_dupes || 0, total_found: s.found_count || 0,
+          last_check: s.last_checked_at || '', url: (s.source_url||'').slice(0,60)
+        };
+        if (s.source_status === 'paused') { info.pause_reason = s.pause_reason || ''; paused.push(info); }
+        else if (st === 'error') { info.error = (s.last_error||'').slice(0,100); errored.push(info); }
+        else if (st === 'ok_new' || (s.last_scan_new||0) > 0) productive.push(info);
+        else if (st === 'filtered') filtered.push(info);
+        else if (st === 'ok_dupes') dupesOnly.push(info);
+        else empty.push(info);
+      });
+
+      // Рекомендації
+      var recommendations = [];
+      if (errored.length > 0) {
+        var googleErrors = errored.filter(function(e){ return e.id.indexOf('google_news')>=0; });
+        if (googleErrors.length > 0) recommendations.push('🔴 Google News (' + googleErrors.length + ' джерел) дають помилки 503. Потрібен деплой v6.8+ зі стійким обходом (fetchGoogleNews з проксі).');
+        var other = errored.filter(function(e){ return e.id.indexOf('google_news')<0; });
+        if (other.length > 0) recommendations.push('🔴 ' + other.length + ' джерел з помилками: ' + other.slice(0,3).map(function(e){return e.name;}).join(', ') + '. Перевір URL або постав на паузу.');
+      }
+      if (empty.length > 0) {
+        var tgEmpty = empty.filter(function(e){ return e.type==='telegram'; });
+        if (tgEmpty.length > 0) recommendations.push('🟡 ' + tgEmpty.length + ' Telegram-каналів порожні (web-preview вимкнено): ' + tgEmpty.slice(0,4).map(function(e){return e.name;}).join(', ') + '. Перевір назви або заміни на робочі.');
+      }
+      if (filtered.length > 0) recommendations.push('🟡 ' + filtered.length + ' джерел знаходять контент, але все відсіюється фільтром: ' + filtered.slice(0,3).map(function(e){return e.name;}).join(', ') + '. Можливо фільтр строгий — перевір scanDebug.');
+      if (productive.length === 0) recommendations.push('⚠️ ЖОДНЕ джерело не дало нових грантів цього циклу. Можливо кеш містить усі поточні гранти (нормально), або потрібен деплой останньої версії.');
+      else recommendations.push('✅ ' + productive.length + ' джерел дали нові гранти: ' + productive.slice(0,5).map(function(e){return e.name+'('+e.new+')';}).join(', '));
+
+      // Топ джерел за весь час
+      var topAllTime = sources
+        .map(function(s){ return { name: s.source_name||s._id, total: s.found_count||0 }; })
+        .filter(function(x){ return x.total > 0; })
+        .sort(function(a,b){ return b.total - a.total; })
+        .slice(0, 10);
+
+      var payload = {
+        ok: true,
+        generated_at: new Date().toISOString(),
+        summary: {
+          total_sources: sources.length,
+          productive: productive.length,
+          dupes_only: dupesOnly.length,
+          empty: empty.length,
+          filtered: filtered.length,
+          errored: errored.length,
+          paused: paused.length
+        },
+        recommendations: recommendations,
+        productive_sources: productive,
+        filtered_sources: filtered,
+        empty_sources: empty,
+        errored_sources: errored,
+        paused_sources: paused,
+        top_all_time: topAllTime
+      };
+
+      // Режим HTML — гарна сторінка зі звітом + кнопки Завантажити/Копіювати
+      if ((req.query.format || '') === 'html') {
+        res.set('Content-Type', 'text/html; charset=utf-8');
+        return res.send(renderHealthHtml(payload));
+      }
+      // Режим TEXT — простий текстовий звіт для завантаження
+      if ((req.query.format || '') === 'text') {
+        res.set('Content-Type', 'text/plain; charset=utf-8');
+        return res.send(renderHealthText(payload));
+      }
+      res.json(payload);
+    } catch(e) { res.status(500).json({ error:e.message }); }
+  });
+
+// 6d. HTTP: Видалення відхилених "Не підходить" з detected.
+// ВАЖЛИВО: scan_index (кеш) НЕ чіпається — тому відхилені НЕ вилізуть знову.
+// Lifetime статистика зберігається. Інтерфейс звільняється.
+// Виклик: .../cleanupRejected              — видалити ВСІ "Не підходить"
+//         .../cleanupRejected?days=30       — видалити "Не підходить" старші 30 днів
+exports.cleanupRejected = functions
+  .runWith({ timeoutSeconds: 540, memory: '1GB' })
+  .https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin','*');
+    res.set('Access-Control-Allow-Methods','POST,GET,OPTIONS');
+    res.set('Access-Control-Allow-Headers','Content-Type');
+    if (req.method==='OPTIONS') return res.status(204).send('');
+    try {
+      var days = parseInt((req.query && req.query.days) || (req.body && req.body.days) || 0);
+      var cutoff = null;
+      if (days > 0) {
+        var d = new Date();
+        d.setDate(d.getDate() - days);
+        cutoff = d.toISOString();
+      }
+
+      // Спочатку зафіксуємо lifetime (щоб статистика не загубилась)
+      // Рахуємо скільки відхилених видаляємо і додаємо до lifetime.total_rejected
+      var rejectedDeleted = 0;
+      while (true) {
+        var q = db.collection(COL.detected).where('status','==','Не підходить').limit(450);
+        var rsnap = await q.get();
+        if (rsnap.empty) break;
+        var batch = db.batch();
+        var inBatch = 0;
+        rsnap.docs.forEach(function(doc) {
+          // Якщо вказано days — видаляємо лише старі
+          if (cutoff) {
+            var foundAt = doc.data().found_at || '';
+            if (foundAt && foundAt > cutoff) return; // свіжий, не чіпаємо
+          }
+          batch.delete(doc.ref);
+          inBatch++;
+        });
+        if (inBatch > 0) { await batch.commit(); rejectedDeleted += inBatch; }
+        if (rsnap.size < 450) break;
+        // Якщо з фільтром days нічого не видалили в цьому батчі — виходимо щоб не зациклитись
+        if (cutoff && inBatch === 0) break;
+      }
+
+      // Записуємо в lifetime скільки всього відхилено (накопичувально)
+      try {
+        await db.collection('gf_settings').doc('lifetime').set({
+          total_rejected_alltime: admin.firestore.FieldValue.increment(rejectedDeleted),
+          last_cleanup: new Date().toISOString()
+        }, { merge: true });
+      } catch(_) {}
+
+      res.json({
+        ok: true,
+        rejected_deleted: rejectedDeleted,
+        scan_index_touched: false,
+        note: 'Видалено відхилені з detected. Кеш дедуплікації НЕ чіпався — ці гранти НЕ вилізуть знову. Статистика збережена.',
+        time: new Date().toISOString()
+      });
+    } catch(e) {
+      console.error('cleanupRejected error:', e);
+      res.status(500).json({ error:e.message });
+    }
+  });
+
+// 6e. HTTP: Скидання кешу дедуплікації (КРАЙНІЙ ВИПАДОК).
+// Чистить scan_index → сканер покаже ВСІ поточні гранти заново.
+// УВАГА: після цього раніше відхилені гранти вилізуть знову!
+// Виклик: .../resetIndex
+exports.resetIndex = functions
+  .runWith({ timeoutSeconds: 540, memory: '1GB' })
+  .https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin','*');
+    res.set('Access-Control-Allow-Methods','POST,GET,OPTIONS');
+    res.set('Access-Control-Allow-Headers','Content-Type');
+    if (req.method==='OPTIONS') return res.status(204).send('');
+    try {
+      var idxDeleted = 0;
+      while (true) {
+        var snap = await db.collection(COL.scanIdx).limit(450).get();
+        if (snap.empty) break;
+        var batch = db.batch();
+        snap.docs.forEach(function(d){ batch.delete(d.ref); });
+        await batch.commit();
+        idxDeleted += snap.size;
+        if (snap.size < 450) break;
+      }
+      res.json({
+        ok: true,
+        scan_index_cleared: idxDeleted,
+        warning: 'Кеш очищено. Раніше відхилені гранти можуть вилізти знову при наступному скануванні.',
+        time: new Date().toISOString()
+      });
+    } catch(e) {
+      console.error('resetIndex error:', e);
+      res.status(500).json({ error:e.message });
+    }
+  });
+
+// 7. Scheduled: щоденний лічильник знайдених о 23:55
+exports.dailyFoundCounter = functions.pubsub
+  .schedule('55 23 * * *')
+  .timeZone('Europe/Kyiv')
+  .onRun(async () => {
+    try {
+      var today = new Date().toISOString().slice(0, 10);
+      var snap = await db.collection(COL.detected)
+        .where('found_at', '>=', today + 'T00:00:00.000Z')
+        .where('found_at', '<=', today + 'T23:59:59.999Z')
+        .get();
+      var todayCount = snap.size;
+      var statsRef = db.collection('gf_settings').doc('main_stats');
+      var statsSnap = await statsRef.get();
+      var currentTotal = statsSnap.exists ? (statsSnap.data().total || 0) : 0;
+      var histRef = db.collection('gf_settings').doc('daily_history');
+      var histSnap = await histRef.get();
+      var history = histSnap.exists ? (histSnap.data().days || []) : [];
+      history.unshift({ date: today, count: todayCount, total: currentTotal });
+      if (history.length > 365) history = history.slice(0, 365);
+      await histRef.set({ days: history, updatedAt: new Date().toISOString() });
+      console.log('Daily counter: ' + today + ' found=' + todayCount);
+    } catch(e) { console.error('dailyFoundCounter error:', e.message); }
+  });
+
+// 8. Scheduled: щоденний підрахунок загальної кількості detected о 23:50
+exports.dailyDetectedCount = functions.pubsub
+  .schedule('50 23 * * *')
+  .timeZone('Europe/Kyiv')
+  .onRun(async () => {
+    try {
+      // Рахуємо всю колекцію detected батчами
+      var total = 0, last = null;
+      while (true) {
+        var q = db.collection(COL.detected).orderBy('detected_id').limit(500);
+        if (last) q = q.startAfter(last);
+        var snap = await q.get();
+        total += snap.size;
+        if (snap.docs.length < 500) break;
+        last = snap.docs[snap.docs.length - 1].data().detected_id;
+      }
+      await db.collection('gf_settings').doc('main_stats').set({
+        total: total, updatedAt: new Date().toISOString()
+      }, { merge: true });
+      console.log('Daily detected total: ' + total);
+    } catch(e) { console.error('dailyDetectedCount error:', e.message); }
+  });
+
+// 10. Scheduled: автоочистка старих "Не підходить" о 23:40
+// 10. Scheduled: автоочистка о 23:40 — тримає РУХОМЕ ВІКНО 30 ДНІВ.
+// Видаляє з detected записи старші 30 днів зі статусами "Не підходить" і
+// "Виявлено" (непереглянуті). Цінні статуси (які ти сам поставив —
+// Збережено/Цікаво/Подано тощо) НЕ видаляються незалежно від віку.
+// scan_index (кеш) НЕ чіпається → видалені гранти НЕ вилізуть знову.
+// Lifetime статистика зберігається.
+exports.dailyCleanupRejected = functions
+  .runWith({ timeoutSeconds: 540, memory: '512MB' })
+  .pubsub
+  .schedule('40 23 * * *')
+  .timeZone('Europe/Kyiv')
+  .onRun(async () => {
+    try {
+      var d = new Date();
+      d.setDate(d.getDate() - 30); // старші 30 днів
+      var cutoff = d.toISOString();
+      // Статуси що підлягають автовидаленню (сміття + непереглянуті).
+      // Усі ІНШІ статуси = цінні, зберігаються назавжди.
+      var CLEANUP_STATUSES = ['Не підходить', 'Виявлено'];
+      var totalDeleted = 0;
+
+      for (var s = 0; s < CLEANUP_STATUSES.length; s++) {
+        var status = CLEANUP_STATUSES[s];
+        var safety = 0;
+        while (safety < 50) {
+          safety++;
+          var rsnap = await db.collection(COL.detected)
+            .where('status','==',status).limit(450).get();
+          if (rsnap.empty) break;
+          var batch = db.batch();
+          var inBatch = 0;
+          rsnap.docs.forEach(function(doc) {
+            var foundAt = doc.data().found_at || '';
+            // Видаляємо ТІЛЬКИ старші 30 днів. Свіжі — лишаємо.
+            // (записи без дати теж лишаємо — безпечніше)
+            if (!foundAt || foundAt > cutoff) return;
+            // ВАЖЛИВО: видаляємо лише з detected. scan_index НЕ чіпаємо —
+            // його відбиток лишається, тому грант не додасться знову.
+            batch.delete(doc.ref);
+            inBatch++;
+          });
+          if (inBatch > 0) { await batch.commit(); totalDeleted += inBatch; }
+          // Якщо у цьому батчі не було старих — далі їх теж не буде, виходимо
+          if (rsnap.size < 450 || inBatch === 0) break;
+        }
+      }
+
+      if (totalDeleted > 0) {
+        await db.collection('gf_settings').doc('lifetime').set({
+          total_cleaned_alltime: admin.firestore.FieldValue.increment(totalDeleted),
+          last_auto_cleanup: new Date().toISOString()
+        }, { merge: true });
+      }
+      console.log('Auto-cleanup (вікно 30 днів): видалено = ' + totalDeleted + ' (кеш недоторканий)');
+    } catch(e) { console.error('dailyCleanupRejected error:', e.message); }
+  });
