@@ -1,5 +1,5 @@
 /**
- * GrantFlow ScanEngine v7.0 — детальна траса кожного сканування (diag_steps з прикладами + авто-попередження) для розгорнутого звіту
+ * GrantFlow ScanEngine v7.1 — причини відсіву кожного заголовка + функція sourceHealth (аналітика джерел + рекомендації)
  * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
  * Виправлення зі звіту 08.06:
  *  - Google News 503: ротація User-Agent + retry з паузою
@@ -76,12 +76,26 @@ function passesFilter(title, desc) {
   return GRANT_WORDS.some(function(w) { return hay.indexOf(w) >= 0; });
 }
 
+// Повертає ТОЧНУ причину чому заголовок відсіяно (для детального звіту)
+function filterReason(title, desc) {
+  if (!title || title.length < 12) return 'короткий(<12)';
+  var bad = BAD_TITLE.find(function(re) { return re.test(title.trim()); });
+  if (bad) return 'службовий-шаблон';
+  if (title.trim().split(' ').length < 2) return 'одне-слово';
+  var hay = (title + ' ' + desc).toLowerCase();
+  var spam = SPAM.find(function(w) { return hay.indexOf(w) >= 0; });
+  if (spam) return 'спам:"' + spam + '"';
+  if (!GRANT_WORDS.some(function(w) { return hay.indexOf(w) >= 0; })) return 'немає-грант-слів';
+  return 'пройшов';
+}
+
 // Пом'якшена перевірка "не наша географія/навігація":
 // блокуємо лише якщо заголовок ТОЧНО дорівнює службовому слову
 function isNavWord(title) {
   var t = (title||'').trim().toLowerCase();
   return NAV_WORDS.indexOf(t) >= 0;
 }
+
 
 // ══════ ДЕДЛАЙН ══════
 const MONTHS_MAP = {
@@ -619,7 +633,7 @@ async function scanSingle(sourceId, src, maxNew) {
   var navSamples = [], filterSamples = [], passSamples = [];
   var good = raw.filter(function(item) {
     if (isNavWord(item.title)) { nonUaDropped++; if(navSamples.length<6) navSamples.push((item.title||'').slice(0,50)); return false; }
-    if (!passesFilter(item.title, item.description)) { if(filterSamples.length<6) filterSamples.push((item.title||'').slice(0,50)); return false; }
+    if (!passesFilter(item.title, item.description)) { if(filterSamples.length<8) filterSamples.push({ title:(item.title||'').slice(0,45), reason:filterReason(item.title, item.description) }); return false; }
     passed++; if(passSamples.length<8) passSamples.push((item.title||'').slice(0,60)); return true;
   });
   step('filter', {
@@ -993,7 +1007,7 @@ exports.healthCheck = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin','*');
   try {
     var snap = await db.collection(COL.sources).where('source_status','==','active').get();
-    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.0' });
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.1' });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 
@@ -1274,6 +1288,89 @@ exports.stats = functions
       console.error('stats error:', e);
       res.status(500).json({ error:e.message });
     }
+  });
+
+// 6c2. HTTP: Аналітика здоровʼя всіх джерел + рекомендації.
+// Виклик: .../sourceHealth
+// Дає повну картину: продуктивні/мертві джерела, де фільтр ріже,
+// які на паузі, рекомендації що виправити.
+exports.sourceHealth = functions
+  .runWith({ timeoutSeconds: 120, memory: '256MB' })
+  .https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin','*');
+    try {
+      var snap = await db.collection(COL.sources).get();
+      var sources = [];
+      snap.forEach(function(doc){ var d = doc.data(); d._id = doc.id; sources.push(d); });
+
+      var productive = [];   // дають нові гранти
+      var dupesOnly = [];    // тільки дублі (working але без нових)
+      var empty = [];        // 0 результатів
+      var filtered = [];     // знаходять, але все відсіюється
+      var errored = [];      // помилки
+      var paused = [];       // на паузі
+
+      sources.forEach(function(s){
+        var st = s.last_scan_status || '';
+        var name = s.source_name || s._id;
+        var info = {
+          name: name, id: s._id, type: s.source_type || '',
+          status: st, raw: s.last_scan_raw || 0, new: s.last_scan_new || 0,
+          dupes: s.last_scan_dupes || 0, total_found: s.found_count || 0,
+          last_check: s.last_checked_at || '', url: (s.source_url||'').slice(0,60)
+        };
+        if (s.source_status === 'paused') { info.pause_reason = s.pause_reason || ''; paused.push(info); }
+        else if (st === 'error') { info.error = (s.last_error||'').slice(0,100); errored.push(info); }
+        else if (st === 'ok_new' || (s.last_scan_new||0) > 0) productive.push(info);
+        else if (st === 'filtered') filtered.push(info);
+        else if (st === 'ok_dupes') dupesOnly.push(info);
+        else empty.push(info);
+      });
+
+      // Рекомендації
+      var recommendations = [];
+      if (errored.length > 0) {
+        var googleErrors = errored.filter(function(e){ return e.id.indexOf('google_news')>=0; });
+        if (googleErrors.length > 0) recommendations.push('🔴 Google News (' + googleErrors.length + ' джерел) дають помилки 503. Потрібен деплой v6.8+ зі стійким обходом (fetchGoogleNews з проксі).');
+        var other = errored.filter(function(e){ return e.id.indexOf('google_news')<0; });
+        if (other.length > 0) recommendations.push('🔴 ' + other.length + ' джерел з помилками: ' + other.slice(0,3).map(function(e){return e.name;}).join(', ') + '. Перевір URL або постав на паузу.');
+      }
+      if (empty.length > 0) {
+        var tgEmpty = empty.filter(function(e){ return e.type==='telegram'; });
+        if (tgEmpty.length > 0) recommendations.push('🟡 ' + tgEmpty.length + ' Telegram-каналів порожні (web-preview вимкнено): ' + tgEmpty.slice(0,4).map(function(e){return e.name;}).join(', ') + '. Перевір назви або заміни на робочі.');
+      }
+      if (filtered.length > 0) recommendations.push('🟡 ' + filtered.length + ' джерел знаходять контент, але все відсіюється фільтром: ' + filtered.slice(0,3).map(function(e){return e.name;}).join(', ') + '. Можливо фільтр строгий — перевір scanDebug.');
+      if (productive.length === 0) recommendations.push('⚠️ ЖОДНЕ джерело не дало нових грантів цього циклу. Можливо кеш містить усі поточні гранти (нормально), або потрібен деплой останньої версії.');
+      else recommendations.push('✅ ' + productive.length + ' джерел дали нові гранти: ' + productive.slice(0,5).map(function(e){return e.name+'('+e.new+')';}).join(', '));
+
+      // Топ джерел за весь час
+      var topAllTime = sources
+        .map(function(s){ return { name: s.source_name||s._id, total: s.found_count||0 }; })
+        .filter(function(x){ return x.total > 0; })
+        .sort(function(a,b){ return b.total - a.total; })
+        .slice(0, 10);
+
+      res.json({
+        ok: true,
+        generated_at: new Date().toISOString(),
+        summary: {
+          total_sources: sources.length,
+          productive: productive.length,
+          dupes_only: dupesOnly.length,
+          empty: empty.length,
+          filtered: filtered.length,
+          errored: errored.length,
+          paused: paused.length
+        },
+        recommendations: recommendations,
+        productive_sources: productive,
+        filtered_sources: filtered,
+        empty_sources: empty,
+        errored_sources: errored,
+        paused_sources: paused,
+        top_all_time: topAllTime
+      });
+    } catch(e) { res.status(500).json({ error:e.message }); }
   });
 
 // 6d. HTTP: Видалення відхилених "Не підходить" з detected.
