@@ -1,5 +1,5 @@
 /**
- * GrantFlow ScanEngine v7.2 — sourceHealth з HTML/TXT режимом (готова сторінка звіту + кнопки завантажити/копіювати)
+ * GrantFlow ScanEngine v7.3 — потужніший обхід Google News (3 набори заголовків + 5 проксі) + 3 нових page-джерела
  * Об'єднує: safeFetch + auto-pause (v5, 08.04) + мульти-грант + windowDays (Оригінал, 07.04)
  * Виправлення зі звіту 08.06:
  *  - Google News 503: ротація User-Agent + retry з паузою
@@ -398,43 +398,64 @@ function stripHtml(h) {
 // ══════ ПАРСЕР RSS (з підтримкою Atom + windowDays) ══════
 // ══════ СТІЙКИЙ FETCH ДЛЯ GOOGLE NEWS (обхід 503 на хмарних IP) ══════
 async function fetchGoogleNews(url) {
-  // Браузерні заголовки повного набору — Google менш охоче блокує
-  var headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'uk-UA,uk;q=0.9,en;q=0.8',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Cache-Control': 'no-cache',
-    'Pragma': 'no-cache'
-  };
-  var lastErr = null;
-  // 3 спроби з прогресивною затримкою (Google іноді віддає з 2-3 разу)
-  for (var attempt = 0; attempt < 3; attempt++) {
-    try {
-      var resp = await fetch(url, { headers: headers, timeout: FETCH_TIMEOUT, redirect: 'follow' });
-      if (resp.ok) return resp;
-      if (resp.status === 503 || resp.status === 429) {
-        await new Promise(function(r){ setTimeout(r, 2000 * (attempt + 1)); });
-        continue;
-      }
-      throw new Error('HTTP ' + resp.status + ' from ' + url.slice(0, 60));
-    } catch (e) {
-      lastErr = e;
-      await new Promise(function(r){ setTimeout(r, 1500); });
+  // Кілька наборів заголовків — ротуємо, бо Google блокує за патерном
+  var headerSets = [
+    {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+      'Accept': 'application/rss+xml,application/xml,text/xml,*/*;q=0.8',
+      'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8',
+      'Referer': 'https://www.google.com/'
+    },
+    {
+      'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+      'Accept': 'application/xml,text/xml,*/*',
+      'Accept-Language': 'uk-UA,uk;q=0.9'
+    },
+    {
+      'User-Agent': 'feedparser/6.0.10 +https://github.com/kurtmckee/feedparser/',
+      'Accept': 'application/rss+xml,application/atom+xml,application/xml;q=0.9,*/*;q=0.8'
     }
+  ];
+  var lastErr = null;
+  // Стратегія 1: прямий запит з ротацією заголовків (4 спроби)
+  for (var attempt = 0; attempt < 4; attempt++) {
+    try {
+      var hs = headerSets[attempt % headerSets.length];
+      var resp = await fetch(url, { headers: hs, timeout: FETCH_TIMEOUT, redirect: 'follow' });
+      if (resp.ok) {
+        var txt = await resp.text();
+        if (txt && txt.indexOf('<') >= 0 && (txt.indexOf('<item') >= 0 || txt.indexOf('<entry') >= 0)) {
+          return { ok: true, text: function(){ return Promise.resolve(txt); }, _cached: txt };
+        }
+      }
+      await new Promise(function(r){ setTimeout(r, 1200 * (attempt + 1)); });
+    } catch (e) { lastErr = e; await new Promise(function(r){ setTimeout(r, 1000); }); }
   }
-  // ЗАПАСНИЙ ШЛЯХ: проксі-дзеркала що читають Google News замість нас
+
+  // Стратегія 2: розширений набір проксі-дзеркал (читають Google замість нас).
+  // Перевіряємо що повертається саме RSS (є <item>), а не заглушка.
   var proxies = [
     'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
-    'https://corsproxy.io/?url=' + encodeURIComponent(url)
+    'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(url),
+    'https://corsproxy.io/?url=' + encodeURIComponent(url),
+    'https://thingproxy.freeboard.io/fetch/' + url,
+    'https://proxy.cors.sh/' + url
   ];
   for (var pi = 0; pi < proxies.length; pi++) {
     try {
-      var pr = await fetch(proxies[pi], { timeout: FETCH_TIMEOUT, redirect: 'follow' });
-      if (pr.ok) return pr;
+      var pr = await fetch(proxies[pi], {
+        timeout: FETCH_TIMEOUT, redirect: 'follow',
+        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': '*/*', 'x-requested-with': 'XMLHttpRequest' }
+      });
+      if (pr.ok) {
+        var ptxt = await pr.text();
+        if (ptxt && (ptxt.indexOf('<item') >= 0 || ptxt.indexOf('<entry') >= 0)) {
+          return { ok: true, text: function(){ return Promise.resolve(ptxt); }, _cached: ptxt };
+        }
+      }
     } catch (_) { /* наступний проксі */ }
   }
-  throw lastErr || new Error('Google News недоступний (503 + проксі не спрацювали)');
+  throw lastErr || new Error('Google News недоступний (прямий 503 + усі проксі заблоковані)');
 }
 
 async function parseRSS(url, limit, windowDays) {
@@ -1007,7 +1028,7 @@ exports.healthCheck = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin','*');
   try {
     var snap = await db.collection(COL.sources).where('source_status','==','active').get();
-    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.2' });
+    res.json({ ok:true, activeSources:snap.size, time:new Date().toISOString(), version:'v7.3' });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 
@@ -1114,7 +1135,17 @@ exports.fixSources = functions
           source_priority:'high', scan_window_days:30, item_limit:25, scan_interval_min:150 },
         { id:'ulead_news', source_name:'U-LEAD — новини/гранти', source_url:'https://u-lead.org.ua/news',
           source_type:'page', parser_mode:'page_links', source_status:'active',
-          source_priority:'medium', scan_window_days:21, item_limit:20, scan_interval_min:180 }
+          source_priority:'medium', scan_window_days:21, item_limit:20, scan_interval_min:180 },
+        // Додаткові перевірені page-джерела (свіжі гранти 2026, перевірено 24.06)
+        { id:'ednannia_contests', source_name:'ІСАР Єднання — конкурси', source_url:'https://ednannia.ua/tryvaiut-hrantovi-konkursy',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:30, item_limit:25, scan_interval_min:150 },
+        { id:'grant_av_gromada', source_name:'Грант АВ — громадський сектор', source_url:'https://grant-av.com.ua/grants/hromadskyj-sektor/',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'high', scan_window_days:30, item_limit:25, scan_interval_min:150 },
+        { id:'uyf_news', source_name:'Молодіжний фонд — можливості', source_url:'https://uyf.gov.ua/news',
+          source_type:'page', parser_mode:'page_links', source_status:'active',
+          source_priority:'medium', scan_window_days:30, item_limit:20, scan_interval_min:180 }
       ];
       for (var ni = 0; ni < newSources.length; ni++) {
         var ns = newSources[ni];
