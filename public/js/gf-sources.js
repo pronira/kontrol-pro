@@ -238,6 +238,7 @@ function gfViewSources() {
     + '<button id="gfBulkScanBtn" class="gf-btn sm g" onclick="gfBulkScanAll()" style="font-size:10px" title="Послідовно просканувати всі активні джерела з прогресом">⏯ Масове сканування</button>'
     + '<button id="gfOpenReportBtn" class="gf-btn sm o" onclick="gfOpenFullReportTab()" style="font-size:10px" title="Повний звіт у новій вкладці">↗ Звіт</button>'
     + '<button id="gfDownloadReportBtn" class="gf-btn sm o" onclick="gfDownloadFullReport()" style="font-size:10px" title="Завантажити .txt">⬇</button>'
+    + '<button id="gfHealthBtn" class="gf-btn sm o" onclick="gfOpenSourceHealth()" style="font-size:10px" title="Аналітика здоров\'я джерел: продуктивні/порожні/помилки + рекомендації що покращити">🩺 Здоров\'я</button>'
     + '<button class="gf-btn sm r" onclick="gfClearAllScanLogs()" style="font-size:10px" title="Очистити всі логи сканування. Зручно після деплою — бачитимеш тільки свіжі результати">🗑 Очистити звіт</button>'
     + '</div></div>'
     + th + (view !== 'archive' ? addH : '') + searchH + listH + '</div>';
@@ -690,7 +691,26 @@ async function gfOpenFullReportTab() {
   }
 }
 
-/* ── Копіювати короткий звіт про помилки в буфер ── */
+/* ── Відкрити звіт здоров'я джерел (нова вкладка з кнопками завантажити/копіювати) ── */
+function gfOpenSourceHealth() {
+  var btn = document.getElementById('gfHealthBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
+  try {
+    var base = (typeof GFC !== 'undefined' && GFC && GFC.fnBase)
+      ? GFC.fnBase
+      : 'https://us-central1-kontrol-pro.cloudfunctions.net/';
+    var url = base + 'sourceHealth?format=html';
+    // Сторінка sourceHealth?format=html уже містить кнопки "Завантажити TXT" і "Копіювати"
+    window.open(url, '_blank');
+    gfToast('Звіт здоров\'я відкрито у новій вкладці', 'var(--green)');
+  } catch(e) {
+    gfToast('Помилка: ' + e.message, 'var(--red)');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '🩺 Здоров\'я'; }
+  }
+}
+
+
 function gfCopyErrorReport() {
   var src = GF.data.sources || [];
   var errSrc = src.filter(function(s) { return s.last_error || s.last_error_code; });
